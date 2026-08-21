@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:yl_music_player/controllers/audio_player_controller.dart';
+import 'package:yl_music_player/utils/playlist_manager.dart';
 import '../pages/playlist_panel.dart';
 import '../themes/theme_provider.dart';
 
 class PlaybackControls extends StatefulWidget {
   final AudioPlayerController controller;
+  final PlaylistManager manager;
 
   const PlaybackControls({
     super.key,
     required this.controller,
+    required this.manager,
   });
 
   @override
@@ -78,17 +81,10 @@ class _PlaybackControlsState extends State<PlaybackControls> {
               onPressed: () {
                 PlaylistPanel.show(
                   context,
-                  tracks: [
-                    PlaylistItem(
-                      id: '1',
-                      title: widget.controller.title,
-                      artist: widget.controller.artist,
-                    ),
-                  ],
-                  activeTrackId: '1',
-                  onDelete: (track) {},
-                  onShuffle: () {},
                   isPlaying: _isPlaying,
+                  playlistManager: widget.manager,
+                  activeTrackPath: '',
+                  onPlayTrack: (String value) {  },
                 );
               },
               icon: const Icon(BootstrapIcons.list_nested),

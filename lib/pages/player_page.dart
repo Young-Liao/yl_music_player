@@ -3,6 +3,7 @@ import 'package:yl_music_player/components/playback_controls.dart';
 import 'package:yl_music_player/components/progress_bar.dart';
 import 'package:yl_music_player/components/track_metadata.dart';
 import 'package:yl_music_player/controllers/audio_player_controller.dart';
+import 'package:yl_music_player/utils/playlist_manager.dart' hide TrackMetadataItem;
 import '../themes/theme_provider.dart';
 import '../components/header_bar.dart';
 
@@ -14,6 +15,9 @@ class PlayerPage extends StatefulWidget {
 
 class _PlayerPageState extends State<PlayerPage> {
   final AudioPlayerController _audioController = AudioPlayerController();
+  final PlaylistManager _playlistManager = PlaylistManager(
+      jsonFilePath: "./test_playlist.json"
+  );
 
   @override
   void initState() {
@@ -74,6 +78,7 @@ class _PlayerPageState extends State<PlayerPage> {
                               ),
                               PlaybackControls(
                                 controller: _audioController,
+                                manager: _playlistManager,
                               ),
                             ],
                           )
