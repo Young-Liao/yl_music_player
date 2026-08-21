@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YL Music Player - Playlist Light</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        :root {
+          --bg-primary: #f1f5f9;
+          --card-bg: rgba(255, 255, 255, 0.85);
+          --card-border: rgba(255, 255, 255, 0.6);
+          --text-main: #0f172a;
+          --text-muted: #64748b;
+          --accent: #6366f1;
+          --accent-light: #e0e7ff;
+          --item-bg: #ffffff;
+          --delete-bg: #ef4444;
+          --next-bg: #0284c7;
+          --shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.08);
+        }
+
+        * {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+        }
+
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          background-color: var(--bg-primary);
+          color: var(--text-main);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 100vh;
+          overflow: hidden;
+        }
+
+        /* Vibrant Ambient Light Background Effect */
+        .ambient-light {
+          position: absolute;
+          width: 380px;
+          height: 380px;
+          background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(192, 132, 252, 0.2) 50%, rgba(255,255,255,0) 70%);
+          border-radius: 50%;
+          filter: blur(50px);
+          z-index: 0;
+          animation: ambientGlow 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes ambientGlow {
+          0% { transform: scale(0.9) translate(-15px, -15px); }
+          100% { transform: scale(1.15) translate(15px, 15px); }
+        }
+
+        /* Glass Container */
+        .playlist-panel {
+          position: relative;
+          z-index: 1;
+          background: var(--card-bg);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          width: 100%;
+          max-width: 380px;
+          height: 580px;
+          padding: 24px;
+          border-radius: 28px;
+          border: 1px solid var(--card-border);
+          box-shadow: var(--shadow);
+          display: flex;
+          flex-direction: column;
+        }
+
+        /* Header */
+        .panel-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+        }
+
+        .panel-title {
+          font-size: 1.25rem;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: var(--text-main);
+        }
+
+        .btn-action {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          color: var(--text-main);
+          padding: 8px 14px;
+          border-radius: 20px;
+          font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+          transition: all 0.2s ease;
+        }
+
+        .btn-action:hover {
+          background: var(--accent);
+          color: #ffffff;
+          border-color: var(--accent);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        /* List Container */
+        .track-list {
+          list-style: none;
+          overflow-y: auto;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          padding-right: 2px;
+        }
+
+        .track-list::-webkit-scrollbar { width: 4px; }
+        .track-list::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 4px;
+        }
+
+        /* Swipeable Wrapper */
+        .swipe-item-wrapper {
+          position: relative;
+          border-radius: 16px;
+          overflow: hidden;
+          background-color: var(--delete-bg); /* Hidden action background */
+          touch-action: pan-y;
+        }
+
+        /* Hidden Right Action Buttons (Revealed on Swipe) */
+        .swipe-actions {
+          position: absolute;
+          top: 0;
+          right: 0;
+          height: 100%;
+          width: 130px;
+          display: flex;
+          z-index: 1;
+        }
+
+        .swipe-btn {
+          flex: 1;
+          height: 100%;
+          border: none;
+          color: #ffffff;
+          font-size: 0.75rem;
+          font-weight: 600;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          gap: 4px;
+          cursor: pointer;
+        }
+
+        .swipe-btn.play-next { background-color: var(--next-bg); }
+        .swipe-btn.delete { background-color: var(--delete-bg); }
+
+        /* Foreground Card Item */
+        .track-item {
+          position: relative;
+          z-index: 2;
+          display: flex;
+          align-items: center;
+          padding: 12px;
+          background: var(--item-bg);
+          border-radius: 16px;
+          gap: 12px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+          transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+          user-select: none;
+        }
+
+        /* Class applied via JS when swiped left */
+        .swipe-item-wrapper.swiped .track-item {
+          transform: translateX(-130px);
+        }
+
+        .track-item.playing {
+          background: var(--accent-light);
+          border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        .track-thumb {
+          width: 46px;
+          height: 46px;
+          border-radius: 10px;
+          object-fit: cover;
+        }
+
+        .track-info {
+          flex: 1;
+          overflow: hidden;
+        }
+
+        .track-title {
+          font-size: 0.95rem;
+          font-weight: 600;
+          color: var(--text-main);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .track-artist {
+          font-size: 0.8rem;
+          color: var(--text-muted);
+          margin-top: 2px;
+        }
+
+        /* Animated Light Equalizer */
+        .equalizer-icon {
+          display: flex;
+          align-items: flex-end;
+          gap: 3px;
+          height: 14px;
+          margin-right: 4px;
+        }
+
+        .equalizer-bar {
+          width: 3px;
+          background-color: var(--accent);
+          border-radius: 2px;
+          animation: bounce 0.8s infinite ease-in-out alternate;
+        }
+
+        .equalizer-bar:nth-child(1) { height: 60%; animation-delay: 0.1s; }
+        .equalizer-bar:nth-child(2) { height: 100%; animation-delay: 0.3s; }
+        .equalizer-bar:nth-child(3) { height: 40%; animation-delay: 0.5s; }
+
+        @keyframes bounce {
+          0% { transform: scaleY(0.3); }
+          100% { transform: scaleY(1.1); }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Ambient background glow -->
+<div class="ambient-light"></div>
+
+<div class="playlist-panel">
+    <header class="panel-header">
+        <div class="panel-title">
+            <i class="bi bi-music-note-list" style="color: var(--accent);"></i> Next Up
+        </div>
+        <button class="btn-action">
+            <i class="bi bi-shuffle"></i> Shuffle
+        </button>
+    </header>
+
+    <ul class="track-list">
+
+        <!-- Item 1: Active Playing -->
+        <li class="swipe-item-wrapper">
+            <div class="swipe-actions">
+                <button class="swipe-btn play-next"><i class="bi bi-arrow-return-right"></i> Next</button>
+                <button class="swipe-btn delete"><i class="bi bi-trash-fill"></i> Delete</button>
+            </div>
+            <div class="track-item playing">
+                <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&w=150&q=80" class="track-thumb" alt="Thumb">
+                <div class="track-info">
+                    <div class="track-title">Midnight City</div>
+                    <div class="track-artist">M83</div>
+                </div>
+                <div class="equalizer-icon">
+                    <div class="equalizer-bar"></div>
+                    <div class="equalizer-bar"></div>
+                    <div class="equalizer-bar"></div>
+                </div>
+            </div>
+        </li>
+
+        <!-- Item 2 -->
+        <li class="swipe-item-wrapper">
+            <div class="swipe-actions">
+                <button class="swipe-btn play-next"><i class="bi bi-arrow-return-right"></i> Next</button>
+                <button class="swipe-btn delete"><i class="bi bi-trash-fill"></i> Delete</button>
+            </div>
+            <div class="track-item">
+                <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=150&q=80" class="track-thumb" alt="Thumb">
+                <div class="track-info">
+                    <div class="track-title">Starboy</div>
+                    <div class="track-artist">The Weeknd</div>
+                </div>
+            </div>
+        </li>
+
+        <!-- Item 3 -->
+        <li class="swipe-item-wrapper">
+            <div class="swipe-actions">
+                <button class="swipe-btn play-next"><i class="bi bi-arrow-return-right"></i> Next</button>
+                <button class="swipe-btn delete"><i class="bi bi-trash-fill"></i> Delete</button>
+            </div>
+            <div class="track-item">
+                <img src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=150&q=80" class="track-thumb" alt="Thumb">
+                <div class="track-info">
+                    <div class="track-title">Get Lucky</div>
+                    <div class="track-artist">Daft Punk</div>
+                </div>
+            </div>
+        </li>
+
+        <!-- Item 4 -->
+        <li class="swipe-item-wrapper">
+            <div class="swipe-actions">
+                <button class="swipe-btn play-next"><i class="bi bi-arrow-return-right"></i> Next</button>
+                <button class="swipe-btn delete"><i class="bi bi-trash-fill"></i> Delete</button>
+            </div>
+            <div class="track-item">
+                <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=150&q=80" class="track-thumb" alt="Thumb">
+                <div class="track-info">
+                    <div class="track-title">Blinding Lights</div>
+                    <div class="track-artist">The Weeknd</div>
+                </div>
+            </div>
+        </li>
+
+    </ul>
+</div>
+
+<!-- Swipe Gesture Toggle Logic -->
+<script>
+    document.querySelectorAll('.swipe-item-wrapper').forEach(item => {
+      let startX = 0;
+
+      item.addEventListener('touchstart', e => {
+        startX = e.touches[0].clientX;
+      });
+
+      item.addEventListener('touchend', e => {
+        let diffX = startX - e.changedTouches[0].clientX;
+        if (diffX > 40) item.classList.add('swiped');    /* Swipe Left */
+        if (diffX < -40) item.classList.remove('swiped'); /* Swipe Right */
+      });
+
+      // Click to toggle on desktop demo
+      item.addEventListener('click', (e) => {
+        if (!e.target.closest('.swipe-btn')) {
+          item.classList.toggle('swiped');
+        }
+      });
+    });
+</script>
+</body>
+</html>

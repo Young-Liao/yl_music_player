@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:yl_music_player/controllers/audio_player_controller.dart';
+import '../pages/playlist_panel.dart';
 import '../themes/theme_provider.dart';
 
 class PlaybackControls extends StatefulWidget {
@@ -74,7 +75,22 @@ class _PlaybackControlsState extends State<PlaybackControls> {
             ),
             // Playlist Queue
             IconButton(
-              onPressed: () {},  // TODO Open playlist panel
+              onPressed: () {
+                PlaylistPanel.show(
+                  context,
+                  tracks: [
+                    PlaylistItem(
+                      id: '1',
+                      title: widget.controller.title,
+                      artist: widget.controller.artist,
+                    ),
+                  ],
+                  activeTrackId: '1',
+                  onDelete: (track) {},
+                  onShuffle: () {},
+                  isPlaying: _isPlaying,
+                );
+              },
               icon: const Icon(BootstrapIcons.list_nested),
               color: theme.textPrimary,
               iconSize: 20.0,
