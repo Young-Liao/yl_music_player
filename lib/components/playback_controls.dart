@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:yl_music_player/controllers/audio_player_controller.dart';
 import '../themes/theme_provider.dart';
 
 class PlaybackControls extends StatefulWidget {
-  const PlaybackControls({super.key});
+  final AudioPlayerController controller;
+
+  const PlaybackControls({
+    super.key,
+    required this.controller,
+  });
 
   @override
   State<PlaybackControls> createState() => _PlaybackControlsState();
@@ -43,7 +49,7 @@ class _PlaybackControlsState extends State<PlaybackControls> {
               onPressed: () {
                 setState(() {
                   _isPlaying = !_isPlaying;
-                  // TODO Call music player
+                  widget.controller.setPlaying(_isPlaying);
                 });
               },
               elevation: 4.0,

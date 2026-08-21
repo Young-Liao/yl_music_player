@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
+import '../controllers/audio_player_controller.dart';
 import '../themes/theme_provider.dart';
 
-class TrackMetadata extends StatelessWidget {
-  final String title;
-  final String artist;
-
+class TrackMetadata extends StatefulWidget {
   const TrackMetadata({
     super.key,
-    this.title = 'Unknown Title',
-    this.artist = 'Unknown Artist',
+    required this.controller,
   });
 
+  final AudioPlayerController controller;
+
+  @override
+  State<StatefulWidget> createState() => _TrackMetadataState();
+}
+
+class _TrackMetadataState extends State<TrackMetadata> {
   @override
   Widget build(BuildContext context) {
     final theme = CustomThemeProvider.of(context);
@@ -18,6 +22,10 @@ class TrackMetadata extends StatelessWidget {
     // Calculate a responsive size based on screen width so it stays a perfect 1:1 square
     final screenWidth = MediaQuery.of(context).size.width;
     final artworkSize = (screenWidth * 0.68).clamp(200.0, 270.0);
+
+    final title = widget.controller.title;
+    final artist = widget.controller.artist;
+    final artworkBytes = widget.controller.artworkBytes;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -41,13 +49,20 @@ class TrackMetadata extends StatelessWidget {
               ),
             ],
           ),
-          child: Center(
-            child: Icon(
-              Icons.music_note_rounded,
-              size: artworkSize * 0.38,
-              color: theme.primaryColor,
-            ),
-          ),
+          child: artworkBytes != null 
+              ? Image.memory(
+                artworkBytes,
+                fit: BoxFit.cover,
+                width: artworkSize,
+                height: artworkSize,
+              )
+              : Center(
+                child: Icon(
+                  Icons.music_note_rounded,
+                  size: artworkSize * 0.38,
+                  color: theme.primaryColor,
+                ),
+              ),
         ),
         const SizedBox(height: 16),
         // Track Title

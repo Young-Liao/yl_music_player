@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:yl_music_player/controllers/audio_player_controller.dart';
 import '../themes/theme_provider.dart';
 
 class ProgressBar extends StatefulWidget {
-  const ProgressBar({super.key});
+  final AudioPlayerController controller;
+
+  const ProgressBar({
+    super.key,
+    required this.controller,
+  });
 
   @override
   State<ProgressBar> createState() => _ProgressBarState();
 }
 
 class _ProgressBarState extends State<ProgressBar> {
-  double _currentPosition = 0.0;
-  final double _maxDuration = 180.0; // 3:00 in seconds
+  bool _isDragging = false;
+  double _dragValue = 0.0;
 
   String _formatDuration(double seconds) {
     final duration = Duration(seconds: seconds.toInt());
@@ -22,6 +28,14 @@ class _ProgressBarState extends State<ProgressBar> {
   @override
   Widget build(BuildContext context) {
     final theme = CustomThemeProvider.of(context);
+    final controller = widget.controller;
+
+    final maxDurationSeconds = controller.duration.inSeconds.toDouble();
+    final currentPositionSeconds = controller.position.inSeconds.toDouble();
+
+    final sliderValue = _isDragging
+        ? _dragValue
+        : currentPositionSeconds.clamp(0.0, maxDurationSeconds > 0 ? maxDurationSeconds : 1.0);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -37,12 +51,24 @@ class _ProgressBarState extends State<ProgressBar> {
             thumbColor: theme.primaryColor,
           ),
           child: Slider(
-            value: _currentPosition,
+            value: sliderValue,
             min: 0.0,
-            max: _maxDuration,
+            max: maxDurationSeconds,
+            onChangeStart: (value) {
+              setState(() {
+                _isDragging = true;
+                _dragValue = value;
+              });
+            },
             onChanged: (value) {
               setState(() {
-                _currentPosition = value;
+                _dragValue = value;
+              });
+            },
+            onChangeEnd: (value) {
+              controller.seek(Duration(seconds: value.toInt()));
+              setState(() {
+                _isDragging = false;
               });
             },
           ),
@@ -54,7 +80,11 @@ class _ProgressBarState extends State<ProgressBar> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                _formatDuration(_currentPosition),
+                _formatDuration(
+                  _isDragging
+                      ? _dragValue.toDouble()
+                      : controller.position.inSeconds.toDouble(),
+                ),
                 style: TextStyle(
                   fontSize: 12.0,
                   fontWeight: FontWeight.w500,
@@ -62,7 +92,7 @@ class _ProgressBarState extends State<ProgressBar> {
                 ),
               ),
               Text(
-                _formatDuration(_maxDuration),
+                _formatDuration(maxDurationSeconds),
                 style: TextStyle(
                   fontSize: 12.0,
                   fontWeight: FontWeight.w500,

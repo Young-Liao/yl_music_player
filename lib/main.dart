@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:metadata_god/metadata_god.dart';
 import 'package:yl_music_player/pages/player_page.dart';
 import 'package:yl_music_player/themes/light_theme.dart';
 import 'package:yl_music_player/themes/theme_provider.dart';
@@ -6,6 +7,7 @@ import 'configs/window.dart';
 
 void main() async {
   await WindowConfig.init();
+  await MetadataGod.initialize();
   runApp(const MyApp());
 }
 
