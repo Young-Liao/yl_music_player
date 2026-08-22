@@ -8,6 +8,7 @@ class AudioPlayerController extends ChangeNotifier {
   final AudioPlayer _player = AudioPlayer();
 
   // Track Metadata
+  String currentPath = '';
   String title = 'Unknown Title';
   String artist = 'Unknown Artist';
   Uint8List? artworkBytes; // Stores embedded cover art raw bytes
@@ -61,6 +62,8 @@ class AudioPlayerController extends ChangeNotifier {
       } else {
         await _player.setUrl(path);
       }
+
+      currentPath = path;
     } catch (e) {
       debugPrint('Error reading track metadata/audio: $e');
     } finally {

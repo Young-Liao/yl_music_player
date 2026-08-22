@@ -1,40 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:yl_music_player/controllers/audio_player_controller.dart';
 import 'package:yl_music_player/utils/file_picker.dart';
 import '../components/animated_equalizer.dart';
+import '../themes/app_theme_interface.dart';
 import '../themes/theme_provider.dart';
 import '../utils/playlist_manager.dart';
 
-/// A high-performance, bottom-sheet playlist panel directly integrated with [PlaylistManager].
-///
-/// Features dynamic window-based metadata loading, drag-and-drop reordering,
-/// slidable track management (Play Next, Delete), and current playing state visualization.
 class PlaylistPanel extends StatefulWidget {
-  /// Shared instance of the central playlist manager controlling queue state & caching.
   final PlaylistManager playlistManager;
-
-  /// Active playing track file path used to highlight the current playing item.
-  final String activeTrackPath;
-
-  /// Global audio engine playback callback triggered when selecting a track to play.
+  final AudioPlayerController audioController;
   final ValueChanged<String> onPlayTrack;
-
-  /// Global state flag indicating whether audio playback is currently active.
   final bool isPlaying;
 
   const PlaylistPanel({
     super.key,
     required this.playlistManager,
-    required this.activeTrackPath,
+    required this.audioController,
     required this.onPlayTrack,
     required this.isPlaying,
   });
 
-  /// Static helper to launch the playlist modal sheet snapping between 65% and 100% height.
   static Future<void> show(
     BuildContext context, {
     required PlaylistManager playlistManager,
-    required String activeTrackPath,
+    required AudioPlayerController audioController,
     required ValueChanged<String> onPlayTrack,
     required bool isPlaying,
   }) {
@@ -47,7 +37,7 @@ class PlaylistPanel extends StatefulWidget {
       builder: (context) {
         return PlaylistPanel(
           playlistManager: playlistManager,
-          activeTrackPath: activeTrackPath,
+          audioController: audioController,
           onPlayTrack: onPlayTrack,
           isPlaying: isPlaying,
         );
@@ -63,15 +53,16 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
 
-  /// Local snapshot list of metadata matching [PlaylistManager.playlistPaths].
   final List<TrackMetadataItem> _displayTracks = [];
-
   bool _isLoading = true;
+  bool _isUpdatingWindow = false;
 
   @override
   void initState() {
     super.initState();
     _initializePlaylistView();
+
+    widget.audioController.addListener(_onControllerChanged);
   }
 
   @override
@@ -80,58 +71,13 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
     super.dispose();
   }
 
-  /// Initial load: populates display queue with fast synchronous fallbacks or cached metadata,
-  /// then immediately warms up the initial scroll window cache range.
   Future<void> _initializePlaylistView() async {
     _syncMetadataList();
     setState(() => _isLoading = false);
 
-    // Warm up the initial visible window range (assume first ~10 items visible)
-    final initialEnd = widget.playlistManager.length > 10
-        ? 10
-        : widget.playlistManager.length - 1;
-    if (initialEnd >= 0) {
-      await widget.playlistManager.updateScrollWindow(0, initialEnd);
-      _syncMetadataList();
-      if (mounted) setState(() {});
-    }
-  }
-
-  /// Synchronizes local list entries with [PlaylistManager] LRU cache state without blocking UI.
-  void _syncMetadataList() {
-    final paths = widget.playlistManager.playlistPaths;
-    _displayTracks.clear();
-
-    for (final path in paths) {
-      // Query cache first; fallback to fast synchronous path parsing if not cached yet
-      final cached = widget.playlistManager.getCurrentMetadataSync(path);
-      _displayTracks.add(cached);
-    }
-  }
-
-  /// Calculates visible list indices from scroll metrics and triggers [PlaylistManager.updateScrollWindow].
-  /// This ensures metadata is lazy-loaded ahead of scroll position like high-performance virtualized lists.
-  void _handleScrollNotification(ScrollNotification notification) {
-    if (notification is ScrollUpdateNotification ||
-        notification is ScrollEndNotification) {
-      final metrics = notification.metrics;
-      if (metrics.maxScrollExtent <= 0) return;
-
-      // Approximate item extent (card height ~64px + 10px spacing = ~74px)
-      const double itemHeight = 74.0;
-      final int visibleStart = (metrics.pixels / itemHeight).floor().clamp(
-        0,
-        widget.playlistManager.length - 1,
-      );
-      final int visibleEnd =
-          ((metrics.pixels + metrics.viewportDimension) / itemHeight)
-              .ceil()
-              .clamp(0, widget.playlistManager.length - 1);
-
-      // Async background metadata prefetch inside the dynamic sliding window [L, R]
-      widget.playlistManager.updateScrollWindow(visibleStart, visibleEnd).then((
-        _,
-      ) {
+    if (widget.playlistManager.length > 0) {
+      final endIdx = (widget.playlistManager.length - 1).clamp(0, 20);
+      widget.playlistManager.updateScrollWindow(0, endIdx).then((_) {
         if (mounted) {
           setState(() {
             _syncMetadataList();
@@ -141,12 +87,69 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
     }
   }
 
-  /// Moves item to play next directly after the current playing index.
-  Future<void> _handlePlayNext(int index) async {
+  void _onControllerChanged() {
+    if (mounted) {
+      setState(() {
+        // Rebuilds tile highlight and equalizer state instantly
+      });
+    }
+  }
+
+  void _syncMetadataList() {
+    final paths = widget.playlistManager.playlistPaths;
+    _displayTracks.clear();
+
+    for (int i = 0; i < paths.length; ++i) {
+      final cached = widget.playlistManager.getCachedMetadataAtIndex(i);
+      _displayTracks.add(cached);
+    }
+  }
+
+  void _handleAdd() async {
+    List<String> paths = await pickMultipleMusicFiles();
+    if (paths.isEmpty) return;
+
+    for (final path in paths) {
+      await widget.playlistManager.addFileNextToCurrent(path);
+    }
+
+    _syncMetadataList();
+    if (mounted) setState(() {});
+  }
+
+  void _handleScrollNotification(ScrollNotification notification) {
+    if (notification is ScrollUpdateNotification ||
+        notification is ScrollEndNotification) {
+      if (_isUpdatingWindow) return;
+
+      final metrics = notification.metrics;
+      const double itemTotalHeight = 74.0;
+
+      final double adjustedPixels = metrics.pixels.clamp(0.0, double.infinity);
+
+      final int visibleStart = (adjustedPixels / itemTotalHeight).floor();
+      final int visibleEnd =
+          ((adjustedPixels + metrics.viewportDimension) / itemTotalHeight)
+              .ceil();
+
+      _isUpdatingWindow = true;
+      widget.playlistManager.updateScrollWindow(visibleStart, visibleEnd).then((
+        _,
+      ) {
+        _isUpdatingWindow = false;
+        if (mounted) {
+          setState(() {
+            _syncMetadataList();
+          });
+        }
+      });
+    }
+  }
+
+  Future<void> _handleMoveToNext(int index) async {
     final paths = widget.playlistManager.playlistPaths;
     if (index < 0 || index >= paths.length) return;
 
-    final targetPath = paths[index];
     final currentIdx = widget.playlistManager.currentIndex;
     final destinationIdx = paths.isEmpty
         ? 0
@@ -156,22 +159,24 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
     setState(() => _syncMetadataList());
   }
 
-  /// Deletes a track from the queue, purges cache entry, and updates local view.
   Future<void> _handleDelete(int index) async {
     await widget.playlistManager.deleteItem(index);
     setState(() => _syncMetadataList());
   }
 
-  /// Shuffles queue order, maintains current track, and refreshes dynamic scroll window.
   Future<void> _handleShuffle() async {
     await widget.playlistManager.shufflePlaylist();
     setState(() => _syncMetadataList());
   }
 
-  /// Reorders item positions within [PlaylistManager] via drag-and-drop.
   Future<void> _handleReorder(int oldIndex, int newIndex) async {
     await widget.playlistManager.moveItem(oldIndex, newIndex);
-    setState(() => _syncMetadataList());
+
+    // Brief delay prevents widget key lifecycle thrashing after dragging
+    await Future.delayed(const Duration(milliseconds: 150));
+    if (mounted) {
+      setState(() => _syncMetadataList());
+    }
   }
 
   @override
@@ -187,14 +192,7 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
       },
       child: Stack(
         children: [
-          // Background barrier tap dismissal target
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(context).pop(),
-              child: const SizedBox.expand(),
-            ),
-          ),
+          _buildDismissBarrier(context),
           DraggableScrollableSheet(
             controller: _sheetController,
             initialChildSize: 0.65,
@@ -217,326 +215,40 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
                     ),
                   ],
                 ),
-                child: Column(
-                  children: [
-                    // Handle Bar Top Drag Indicator
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () {
-                        final target = _sheetController.size > 0.8 ? 0.65 : 1.0;
-                        _sheetController.animateTo(
-                          target,
-                          duration: const Duration(milliseconds: 250),
-                          curve: Curves.easeOutCubic,
-                        );
-                      },
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(height: 10),
-                          Container(
-                            width: 36,
-                            height: 5,
-                            decoration: BoxDecoration(
-                              color: theme.textSecondary.withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                      ),
-                    ),
+                child: SlidableAutoCloseBehavior(
+                  child: Column(
+                    children: [
+                      // Fixed Top Section: Drag handle and header stay pinned above scrolling content
+                      _buildDragHandle(theme),
+                      _buildHeader(theme),
+                      const SizedBox(height: 12),
 
-                    // Top Control Bar Header
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.playlist_play_rounded,
-                                color: theme.primaryColor,
-                                size: 26,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Next Up (${widget.playlistManager.length})',
-                                style: TextStyle(
-                                  fontSize: 20.0,
-                                  fontWeight: FontWeight.w700,
-                                  color: theme.textPrimary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              IconButton(
-                                onPressed: () async {
-                                  List<String> paths =
-                                      await pickMultipleMusicFiles();
-                                  for (final path in paths) {
-                                    widget.playlistManager.addFileNextToCurrent(
-                                      path,
-                                    );
-                                  }
-                                  if (mounted) {
-                                    setState(() {
-                                      _syncMetadataList();
-                                    });
-                                  }
-                                },
-                                icon: Icon(
-                                  Icons.add_rounded,
-                                  color: theme.primaryColor,
-                                ),
-                                tooltip: 'Add Track',
-                              ),
-                              const SizedBox(width: 4),
-                              OutlinedButton.icon(
-                                onPressed: _handleShuffle,
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: theme.textPrimary,
-                                  side: BorderSide(
-                                    color: theme.primaryColor.withValues(
-                                      alpha: 0.2,
-                                    ),
-                                  ),
-                                  shape: const StadiumBorder(),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                icon: Icon(
-                                  Icons.shuffle_rounded,
-                                  size: 16,
-                                  color: theme.primaryColor,
-                                ),
-                                label: const Text(
-                                  'Shuffle',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Scroll-aware Dynamic Lazy Loaded List with Drag-Reorder
-                    Expanded(
-                      child: _isLoading
-                          ? Center(
-                              child: CircularProgressIndicator(
-                                color: theme.primaryColor,
-                              ),
-                            )
-                          : SlidableAutoCloseBehavior(
-                              child: NotificationListener<ScrollNotification>(
-                                onNotification: (notification) {
-                                  _handleScrollNotification(notification);
-                                  return false;
-                                },
-                                child: ReorderableListView.builder(
-                                  scrollController: scrollController,
-                                  padding: const EdgeInsets.fromLTRB(
-                                    20.0,
-                                    0.0,
-                                    20.0,
-                                    20.0,
-                                  ),
-                                  itemCount: _displayTracks.length,
-                                  onReorder: _handleReorder,
-                                  proxyDecorator: (child, index, animation) {
-                                    return Material(
-                                      color: Colors.transparent,
-                                      shadowColor: Colors.black26,
-                                      elevation: 6,
-                                      child: child,
-                                    );
-                                  },
-                                  itemBuilder: (context, index) {
-                                    final track = _displayTracks[index];
-                                    final isActive =
-                                        track.filePath ==
-                                        widget.activeTrackPath;
-
-                                    return Container(
-                                      key: ValueKey(track.filePath),
-                                      margin: const EdgeInsets.only(
-                                        bottom: 10.0,
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(
-                                          theme.cardCornerRadius - 4,
-                                        ),
-                                        child: Slidable(
-                                          endActionPane: ActionPane(
-                                            motion: const DrawerMotion(),
-                                            extentRatio: 0.44,
-                                            children: [
-                                              // Action 1: Play Next
-                                              CustomSlidableAction(
-                                                onPressed: (_) {},
-                                                // TODO: Add to next
-                                                backgroundColor: theme
-                                                    .primaryColor
-                                                    .withValues(alpha: 0.15),
-                                                foregroundColor:
-                                                    theme.primaryColor,
-                                                child: const Column(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(
-                                                      Icons
-                                                          .playlist_add_rounded,
-                                                      size: 22,
-                                                    ),
-                                                    SizedBox(height: 2),
-                                                    Text(
-                                                      'Next',
-                                                      style: TextStyle(
-                                                        fontSize: 11,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-
-                                              // Action 2: Remove
-                                              CustomSlidableAction(
-                                                onPressed: (_) =>
-                                                    _handleDelete(index),
-                                                backgroundColor:
-                                                    Colors.redAccent,
-                                                foregroundColor: Colors.white,
-                                                child: const Column(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(
-                                                      Icons
-                                                          .delete_outline_rounded,
-                                                      size: 22,
-                                                    ),
-                                                    SizedBox(height: 2),
-                                                    Text(
-                                                      'Remove',
-                                                      style: TextStyle(
-                                                        fontSize: 11,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          child: Material(
-                                            color: Colors.transparent,
-                                            child: InkWell(
-                                              onTap: () => widget.onPlayTrack(
-                                                track.filePath,
-                                              ),
-                                              child: Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 16,
-                                                      vertical: 12,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  color: isActive
-                                                      ? theme.primaryColor
-                                                            .withValues(
-                                                              alpha: 0.1,
-                                                            )
-                                                      : theme.primaryColor
-                                                            .withValues(
-                                                              alpha: 0.03,
-                                                            ),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Column(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        children: [
-                                                          Text(
-                                                            track.title,
-                                                            style: TextStyle(
-                                                              fontSize: 15.0,
-                                                              fontWeight:
-                                                                  isActive
-                                                                  ? FontWeight
-                                                                        .w700
-                                                                  : FontWeight
-                                                                        .w600,
-                                                              color: theme
-                                                                  .textPrimary,
-                                                            ),
-                                                            maxLines: 1,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                          ),
-                                                          const SizedBox(
-                                                            height: 2,
-                                                          ),
-                                                          Text(
-                                                            track.artist,
-                                                            style: TextStyle(
-                                                              fontSize: 13.0,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                              color: theme
-                                                                  .textSecondary,
-                                                            ),
-                                                            maxLines: 1,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    if (isActive) ...[
-                                                      const SizedBox(width: 12),
-                                                      AnimatedEqualizer(
-                                                        color:
-                                                            theme.primaryColor,
-                                                        size: 16,
-                                                        isPlaying:
-                                                            widget.isPlaying,
-                                                      ),
-                                                    ],
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
+                      // Virtualized Dynamic Scroll Area
+                      Expanded(
+                        child: NotificationListener<ScrollNotification>(
+                          onNotification: (notification) {
+                            _handleScrollNotification(notification);
+                            return false;
+                          },
+                          child: CustomScrollView(
+                            controller: scrollController,
+                            cacheExtent: 1000.0,
+                            slivers: [
+                              _isLoading
+                                  ? SliverFillRemaining(
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          color: theme.primaryColor,
                                         ),
                                       ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                    ),
-                  ],
+                                    )
+                                  : _buildSliverTrackList(theme),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
@@ -545,24 +257,296 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
       ),
     );
   }
-}
 
-/// Helper extension on [PlaylistManager] to allow instant non-blocking local retrieval.
-extension PlaylistManagerSyncExtension on PlaylistManager {
-  /// Returns cached metadata instantly if present, or synchronous fallback without async blocking.
-  TrackMetadataItem getCurrentMetadataSync(String path) {
-    if (playlistPaths.contains(path)) {
-      // Internal cache lookup
-      final cached = getCurrentMetadataSyncOrNull(path);
-      if (cached != null) return cached;
-    }
-    return TrackMetadataItem.fallback(path);
+  Widget _buildDismissBarrier(BuildContext context) {
+    return Positioned.fill(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => Navigator.of(context).pop(),
+        child: const SizedBox.expand(),
+      ),
+    );
   }
 
-  /// Internal lookup for cache presence without asynchronous extraction.
-  TrackMetadataItem? getCurrentMetadataSyncOrNull(String path) {
-    // If your LRU cache instance inside PlaylistManager is private,
-    // expose a synchronous `getFromCache(path)` getter on PlaylistManager directly.
-    return null;
+  Widget _buildDragHandle(IAppTheme theme) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        final target = _sheetController.size > 0.8 ? 0.65 : 1.0;
+        _sheetController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+        );
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 10),
+          Container(
+            width: 36,
+            height: 5,
+            decoration: BoxDecoration(
+              color: theme.textSecondary.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(IAppTheme theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.playlist_play_rounded,
+                color: theme.primaryColor,
+                size: 26,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Next Up (${widget.playlistManager.length})',
+                style: TextStyle(
+                  fontSize: 20.0,
+                  fontWeight: FontWeight.w700,
+                  color: theme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              IconButton(
+                onPressed: _handleAdd,
+                icon: Icon(Icons.add_rounded, color: theme.primaryColor),
+                tooltip: 'Add Track',
+              ),
+              const SizedBox(width: 4),
+              OutlinedButton.icon(
+                onPressed: _handleShuffle,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: theme.textPrimary,
+                  side: BorderSide(
+                    color: theme.primaryColor.withValues(alpha: 0.2),
+                  ),
+                  shape: const StadiumBorder(),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                ),
+                icon: Icon(
+                  Icons.shuffle_rounded,
+                  size: 16,
+                  color: theme.primaryColor,
+                ),
+                label: const Text(
+                  'Shuffle',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSliverTrackList(IAppTheme theme) {
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(20.0, 0.0, 20.0, 20.0),
+      sliver: SliverReorderableList(
+        // TODO: Fix Dragging
+        itemCount: _displayTracks.length,
+        onReorder: _handleReorder,
+        proxyDecorator: (child, index, animation) {
+          return Material(
+            color: Colors.transparent,
+            shadowColor: Colors.black26,
+            elevation: 6,
+            child: child,
+          );
+        },
+        itemBuilder: (context, index) {
+          final track = _displayTracks[index];
+          final isActive = track.filePath == widget.audioController.currentPath;
+
+          return Container(
+            key: ValueKey(track.filePath),
+            margin: const EdgeInsets.only(bottom: 10.0),
+            child: _buildTrackTile(context, theme, track, index, isActive),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTrackTile(
+    BuildContext context,
+    IAppTheme theme,
+    TrackMetadataItem track,
+    int index,
+    bool isActive,
+  ) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(theme.cardCornerRadius - 4),
+      child: Slidable(
+        endActionPane: ActionPane(
+          motion: const DrawerMotion(),
+          extentRatio: 0.44,
+          children: [
+            CustomSlidableAction(
+              onPressed: (_) => _handleMoveToNext(index),
+              backgroundColor: theme.primaryColor.withValues(alpha: 0.15),
+              foregroundColor: theme.primaryColor,
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.playlist_add_rounded, size: 22),
+                  SizedBox(height: 2),
+                  Text(
+                    'Next',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+            CustomSlidableAction(
+              onPressed: (_) => _handleDelete(index),
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.delete_outline_rounded, size: 22),
+                  SizedBox(height: 2),
+                  Text(
+                    'Remove',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => widget.onPlayTrack(track.filePath),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isActive
+                    ? theme.primaryColor.withValues(alpha: 0.1)
+                    : theme.primaryColor.withValues(alpha: 0.03),
+              ),
+              child: Row(
+                children: [
+                  _buildTrackArtwork(theme, track),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildTrackInfo(theme, track, isActive)),
+                  if (isActive) ...[
+                    const SizedBox(width: 12),
+                    AnimatedEqualizer(
+                      color: theme.primaryColor,
+                      size: 16,
+                      isPlaying: widget.isPlaying,
+                    ),
+                  ],
+                  const SizedBox(width: 8),
+                  ReorderableDragStartListener(
+                    index: index,
+                    child: Icon(
+                      Icons.drag_handle_rounded,
+                      color: theme.textSecondary.withValues(alpha: 0.4),
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Artwork widget using AnimatedSwitcher for smooth transitions when artwork loads.
+  Widget _buildTrackArtwork(IAppTheme theme, TrackMetadataItem track) {
+    final artworkBytes = track.compressedArtwork;
+    const artworkSize = 22.0;
+    const borderRadius = 8.0;
+
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: theme.primaryColor.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(borderRadius),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          switchInCurve: Curves.easeIn,
+          switchOutCurve: Curves.easeOut,
+          child: artworkBytes == null
+              ? Icon(
+                  Icons.music_note_rounded,
+                  key: const ValueKey('placeholder_icon'),
+                  color: theme.primaryColor,
+                  size: artworkSize,
+                )
+              : Image.memory(
+                  artworkBytes,
+                  key: ValueKey(track.filePath),
+                  gaplessPlayback: true,
+                  fit: BoxFit.cover,
+                  width: 44,
+                  height: 44,
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTrackInfo(
+    IAppTheme theme,
+    TrackMetadataItem track,
+    bool isActive,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          track.title,
+          style: TextStyle(
+            fontSize: 15.0,
+            fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
+            color: theme.textPrimary,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          track.artist,
+          style: TextStyle(
+            fontSize: 13.0,
+            fontWeight: FontWeight.w500,
+            color: theme.textSecondary,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
   }
 }

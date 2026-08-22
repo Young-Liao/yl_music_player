@@ -83,8 +83,18 @@ class _PlaybackControlsState extends State<PlaybackControls> {
                   context,
                   isPlaying: _isPlaying,
                   playlistManager: widget.manager,
-                  activeTrackPath: '',
-                  onPlayTrack: (String value) {  },
+                  audioController: widget.controller,
+                  onPlayTrack: (String path) async {
+                    widget.controller.loadTrack(
+                      path,
+                      isLocalFile: true,
+                    );
+                    _isPlaying = true;
+                    await widget.controller.setPlaying(true);
+                    if (mounted) {
+                      setState(() { });
+                    }
+                  },
                 );
               },
               icon: const Icon(BootstrapIcons.list_nested),

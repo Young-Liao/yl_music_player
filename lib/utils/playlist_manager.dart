@@ -1,9 +1,9 @@
+import 'dart:ui' as ui;
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:metadata_god/metadata_god.dart';
 
 /// Metadata model holding cached track details and compressed artwork bytes.
@@ -20,6 +20,16 @@ class TrackMetadataItem {
     this.compressedArtwork,
   });
 
+  /// Factory constructor for unknown / empty track state.
+  factory TrackMetadataItem.empty() {
+    return TrackMetadataItem(
+      filePath: "Unknown Path",
+      title: "Unknown Title",
+      artist: "Unknown Artist",
+      compressedArtwork: null,
+    );
+  }
+
   /// Synchronous fallback when metadata parsing fails or isn't ready yet.
   factory TrackMetadataItem.fallback(String path) {
     final fileName = path.split(Platform.pathSeparator).last;
@@ -35,77 +45,83 @@ class TrackMetadataItem {
     );
   }
 
-  /// Async factory method that reads ID3 tags via MetadataGod.
+  /// Async factory method that reads ID3 tags via [MetadataGod] and compresses artwork.
   static Future<TrackMetadataItem> fromPath(String path) async {
     try {
-      // Async metadata read using MetadataGod
       final metadata = await MetadataGod.readMetadata(file: path);
-      debugPrint('path: $path');
 
       final title = metadata.title ?? path.split('/').last.replaceAll('.mp3', '');
       final artist = metadata.artist ?? 'Unknown Artist';
-      final artworkBytes = metadata.picture?.data; // Extract cover art bytes
-      debugPrint('title: $title');
+      final rawArtwork = metadata.picture?.data;
+
+      // Compress artwork byte array to 88x88 px thumbnail to save RAM and avoid render lag
+      Uint8List? compressedArtwork;
+      if (rawArtwork != null && rawArtwork.isNotEmpty) {
+        compressedArtwork = await _compressImageBytes(rawArtwork, targetWidth: 88);
+      }
 
       return TrackMetadataItem(
         filePath: path,
         title: title,
         artist: artist,
-        // Optional: Extract artwork bytes directly if available in MetadataGod payload
-        compressedArtwork: artworkBytes,
+        compressedArtwork: compressedArtwork,
       );
     } catch (e) {
-      // Fallback gracefully to basic file name parsing if reading fails
       return TrackMetadataItem.fallback(path);
+    }
+  }
+
+  /// Downscales high-resolution cover images to a thumbnail target width using Flutter UI codecs.
+  static Future<Uint8List?> _compressImageBytes(Uint8List rawBytes, {required int targetWidth}) async {
+    try {
+      final codec = await ui.instantiateImageCodec(
+        rawBytes,
+        targetWidth: targetWidth,
+      );
+      final frameInfo = await codec.getNextFrame();
+      final image = frameInfo.image;
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      return byteData?.buffer.asUint8List();
+    } catch (_) {
+      // Fallback to original raw bytes if codec compression fails
+      return rawBytes;
     }
   }
 }
 
 /// Managing playlist persistence, LRU caching, window prefetching, and queue operations.
 class PlaylistManager {
-  // Path to the local JSON file where playlist paths are persisted.
   final String jsonFilePath;
-
-  // Maximum capacity of items allowed in memory at any time.
   final int maxCacheSize;
 
-  // List of file paths representing the master playlist order.
   List<String> _playlistPaths = [];
-
-  // Pointer tracking the index of the currently active track.
   int _currentIndex = 0;
 
   // Active scroll visibility window boundaries [L, R] inside the playlist panel.
   int _windowL = 0;
   int _windowR = 0;
 
-  // LRU Cache mapping file paths to TrackMetadata.
-  // LinkedHashMap maintains insertion order; moving accessed items to the end simulates LRU.
-  final LinkedHashMap<String, TrackMetadataItem> _lruCache = LinkedHashMap<String, TrackMetadataItem>();
+  // LinkedHashMap maintains insertion order for true LRU eviction performance.
+  final LinkedHashMap<String, TrackMetadataItem> _lruCache =
+  LinkedHashMap<String, TrackMetadataItem>();
 
   PlaylistManager({
     required this.jsonFilePath,
-    this.maxCacheSize = 50,
+    this.maxCacheSize = 250, // Expanded cache limit to store more tracks in memory
   });
 
   // ---------------------------------------------------------------------------
   // Getters
   // ---------------------------------------------------------------------------
 
-  /// Returns total items in playlist.
   int get length => _playlistPaths.length;
-
-  /// Returns current playing track index.
   int get currentIndex => _currentIndex;
-
-  /// Returns unmodifiable view of current file paths.
   List<String> get playlistPaths => List.unmodifiable(_playlistPaths);
 
   // ---------------------------------------------------------------------------
   // 1. Persistence & JSON Handling
   // ---------------------------------------------------------------------------
 
-  /// Loads playlist configuration from local JSON file.
   Future<void> loadPlaylistFromJson() async {
     try {
       final file = File(jsonFilePath);
@@ -121,50 +137,55 @@ class PlaylistManager {
     }
   }
 
-  /// Saves current file path list to local JSON file.
   Future<void> savePlaylistToJson() async {
     try {
       final file = File(jsonFilePath);
       final jsonString = jsonEncode(_playlistPaths);
       await file.writeAsString(jsonString);
     } catch (e) {
-      // Handle file write permissions or disk issues here
+      debugPrint('Error saving playlist to JSON: $e');
     }
   }
 
   // ---------------------------------------------------------------------------
-  // 2. LRU Cache & Background Prefetching
+  // 2. LRU Cache & Protected Window Eviction
   // ---------------------------------------------------------------------------
 
-  /// Retrieves item from LRU cache. Refreshes its position as 'most recently used'.
-  TrackMetadataItem? _getFromCache(String path) {
-    if (!_lruCache.containsKey(path)) return null;
-
-    // Refresh access order in LinkedHashMap
-    final value = _lruCache.remove(path)!;
-    _lruCache[path] = value;
-    return value;
+  /// Retrieves item from LRU cache without altering order during layout passes.
+  TrackMetadataItem? _peekCache(String path) {
+    return _lruCache[path];
   }
 
-  /// Puts item into LRU cache. Evicts oldest entries if capacity exceeded.
+  /// Puts item into LRU cache. Ensures items currently inside active window [_windowL, _windowR]
+  /// are protected and NEVER purged when capacity limit is reached.
   void _putToCache(String path, TrackMetadataItem metadata) {
     if (_lruCache.containsKey(path)) {
       _lruCache.remove(path);
     } else if (_lruCache.length >= maxCacheSize) {
-      // Evict the least recently used item (first key in LinkedHashMap)
-      final oldestKey = _lruCache.keys.first;
-      _lruCache.remove(oldestKey);
+      // Find oldest key NOT belonging to current active window
+      final currentWindowPaths = (_windowL <= _windowR && _playlistPaths.isNotEmpty)
+          ? _playlistPaths.sublist(_windowL, _windowR + 1).toSet()
+          : <String>{};
+
+      String? keyToEvict;
+      for (final key in _lruCache.keys) {
+        if (!currentWindowPaths.contains(key)) {
+          keyToEvict = key;
+          break;
+        }
+      }
+
+      // If all cached items fall inside active window, evict first key anyway as emergency fallback
+      keyToEvict ??= _lruCache.keys.first;
+      _lruCache.remove(keyToEvict);
     }
     _lruCache[path] = metadata;
   }
 
-  /// Extract actual audio metadata asynchronously via MetadataGod.
   Future<TrackMetadataItem> _extractMetadata(String filePath) async {
-    // Calls static async method created above
     return await TrackMetadataItem.fromPath(filePath);
   }
 
-  /// Fast synchronous fallback for instant UI return when cache misses
   TrackMetadataItem _getSyncFallback(String path) {
     return TrackMetadataItem.fallback(path);
   }
@@ -173,91 +194,92 @@ class PlaylistManager {
   // 3. Dynamic Scroll Window Updating [L, R]
   // ---------------------------------------------------------------------------
 
-  /// Updates target scroll window [L, R] according to top/bottom visible indices in UI.
-  /// Trigger this method inside a ScrollController listener from your playlist UI.
+  /// Updates active window with an offset buffer of 10 items above and below visible range.
   Future<void> updateScrollWindow(int visibleStartIndex, int visibleEndIndex) async {
     if (_playlistPaths.isEmpty) return;
 
-    // Buffer range outside visible UI to pre-load adjacent items smoothly
-    const buffer = 5;
+    // Buffer range: extend visible start/end by 10 items up & down
+    const buffer = 10;
     _windowL = (visibleStartIndex - buffer).clamp(0, _playlistPaths.length - 1);
     _windowR = (visibleEndIndex + buffer).clamp(0, _playlistPaths.length - 1);
 
-    // 1. Evict cache entries that fall completely outside [_windowL, _windowR]
-    final allowedPaths = _playlistPaths.sublist(_windowL, _windowR + 1).toSet();
-    _lruCache.removeWhere((path, _) => !allowedPaths.contains(path));
-
-    // 2. Load missing metadata in background for items within new range
+    // Identify paths within new window that lack metadata
+    final uncachedPaths = <String>[];
     for (int i = _windowL; i <= _windowR; i++) {
       final path = _playlistPaths[i];
       if (!_lruCache.containsKey(path)) {
-        // Asynchronously extract and populate cache without blocking main scroll thread
-        _extractMetadata(path).then((metadata) {
-          _putToCache(path, metadata);
-        });
+        uncachedPaths.add(path);
       }
+    }
+
+    if (uncachedPaths.isEmpty) return;
+
+    // Concurrently fetch metadata for missing paths in window
+    final results = await Future.wait(
+      uncachedPaths.map((path) => _extractMetadata(path)),
+    );
+
+    for (int i = 0; i < uncachedPaths.length; i++) {
+      _putToCache(uncachedPaths[i], results[i]);
     }
   }
 
+  /// Synchronously returns cached metadata or fallback representation for list tile builders.
+  TrackMetadataItem getCachedMetadataAtIndex(int index) {
+    if (index < 0 || index >= _playlistPaths.length) return TrackMetadataItem.empty();
+    final path = _playlistPaths[index];
+    return _peekCache(path) ?? TrackMetadataItem.fallback(path);
+  }
+
   // ---------------------------------------------------------------------------
-  // 4. Track Controls & Querying (For Audio Controller)
+  // 4. Track Controls & Queue State
   // ---------------------------------------------------------------------------
 
-  /// Returns current active track's metadata. Evaluates cache or generates fallback immediately.
   Future<TrackMetadataItem?> getCurrentMetadata() async {
     if (_playlistPaths.isEmpty || _currentIndex >= _playlistPaths.length) {
       return null;
     }
 
     final currentPath = _playlistPaths[_currentIndex];
-
-    // Return cached metadata if present
     if (_lruCache.containsKey(currentPath)) {
-      return _getFromCache(currentPath);
+      return _peekCache(currentPath);
     }
 
-    // Otherwise extract, cache, and return
     final metadata = await _extractMetadata(currentPath);
     _putToCache(currentPath, metadata);
     return metadata;
   }
 
-  /// Advances to next item index in list.
   TrackMetadataItem? nextItem() {
     if (_playlistPaths.isEmpty) return null;
     _currentIndex = (_currentIndex + 1) % _playlistPaths.length;
     final path = _playlistPaths[_currentIndex];
-
-    // Returns cached version or synchronous basic fallback immediately
-    return _getFromCache(path) ?? _getSyncFallback(path);
+    return _peekCache(path) ?? _getSyncFallback(path);
   }
 
-  /// Moves back to previous item index in list.
   TrackMetadataItem? prevItem() {
     if (_playlistPaths.isEmpty) return null;
     _currentIndex = (_currentIndex - 1 + _playlistPaths.length) % _playlistPaths.length;
     final path = _playlistPaths[_currentIndex];
-
-    return _getFromCache(path) ?? _getSyncFallback(path);
+    return _peekCache(path) ?? _getSyncFallback(path);
   }
 
   // ---------------------------------------------------------------------------
   // 5. Playlist Modifications (Add, Delete, Move, Shuffle)
   // ---------------------------------------------------------------------------
 
-  /// Adds a new audio file path directly NEXT to the current playing item index.
+  /// Immediately extracts metadata and caches item upon insertion.
   Future<void> addFileNextToCurrent(String filePath) async {
     final insertIndex = _playlistPaths.isEmpty ? 0 : _currentIndex + 1;
     _playlistPaths.insert(insertIndex, filePath);
 
-    // Warm up metadata extraction immediately for newly added file
+    // Warm metadata cache immediately
     final metadata = await _extractMetadata(filePath);
     _putToCache(filePath, metadata);
 
     await savePlaylistToJson();
   }
 
-  /// Deletes item at index, adjusts pointers, purges cache, and saves state.
   Future<void> deleteItem(int index) async {
     if (index < 0 || index >= _playlistPaths.length) return;
 
@@ -265,7 +287,6 @@ class PlaylistManager {
     _playlistPaths.removeAt(index);
     _lruCache.remove(pathToRemove);
 
-    // Adjust current playing index pointer
     if (index < _currentIndex) {
       _currentIndex--;
     } else if (_currentIndex >= _playlistPaths.length && _playlistPaths.isNotEmpty) {
@@ -275,12 +296,10 @@ class PlaylistManager {
     await savePlaylistToJson();
   }
 
-  /// Reorders item position from [oldIndex] to [newIndex] (e.g., drag-and-drop UI).
   Future<void> moveItem(int oldIndex, int newIndex) async {
     if (oldIndex < 0 || oldIndex >= _playlistPaths.length) return;
     if (newIndex < 0 || newIndex >= _playlistPaths.length) return;
 
-    // Standard reordering logic adjusting index offset when moving downwards
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
@@ -288,7 +307,6 @@ class PlaylistManager {
     final item = _playlistPaths.removeAt(oldIndex);
     _playlistPaths.insert(newIndex, item);
 
-    // Synchronize active tracking pointer
     if (_currentIndex == oldIndex) {
       _currentIndex = newIndex;
     } else if (oldIndex < _currentIndex && newIndex >= _currentIndex) {
@@ -300,21 +318,16 @@ class PlaylistManager {
     await savePlaylistToJson();
   }
 
-  /// Shuffles playlist order, retains currently playing track, re-populates cache.
+  /// Shuffles playlist and updates metadata for new top viewport window immediately.
   Future<void> shufflePlaylist() async {
     if (_playlistPaths.length <= 1) return;
 
     final currentTrackPath = _playlistPaths[_currentIndex];
-
-    // Shuffle the list
     _playlistPaths.shuffle();
-
-    // Reset current index pointer to new index of original track
     _currentIndex = _playlistPaths.indexOf(currentTrackPath);
 
-    // Clear outdated spatial cache order and rebuild for current window
-    _lruCache.clear();
-    await updateScrollWindow(_currentIndex, _currentIndex + 5);
+    // Reload active window immediately after shuffle
+    await updateScrollWindow(0, 20);
     await savePlaylistToJson();
   }
 }
