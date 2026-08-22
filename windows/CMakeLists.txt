@@ -2,6 +2,11 @@
 cmake_minimum_required(VERSION 3.14)
 project(yl_music_player LANGUAGES CXX)
 
+# To prevent unicode error in windows.
+if (MSVC)
+    add_compile_options(/utf-8)
+endif()
+
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
 set(BINARY_NAME "yl_music_player")

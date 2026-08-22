@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:metadata_god/metadata_god.dart';
+import 'package:path/path.dart' as p;
 
 enum LoopType { loop, repeat }
 
@@ -22,6 +23,7 @@ class AudioPlayerController extends ChangeNotifier {
   Duration duration = Duration.zero;
   double volume = 0.7;
   LoopType loopType = LoopType.loop;  // TODO: Save to settings files.
+  bool _isLoading = false;
 
   AudioPlayerController({required this.playbackCompleted}) {
     _initStreams();
@@ -58,7 +60,12 @@ class AudioPlayerController extends ChangeNotifier {
 
   /// Load track and automatically extract embedded ID3 metadata
   Future<void> loadTrack(String path, {bool isLocalFile = true}) async {
+    if (_isLoading) return;
+    _isLoading = true;
+
     try {
+      Uri audioUri;
+
       if (isLocalFile) {
         final file = File(path);
         if (!await file.exists()) {
@@ -66,24 +73,41 @@ class AudioPlayerController extends ChangeNotifier {
           return;
         }
 
-        // 1. Extract Metadata from Audio File
-        final metadata = await MetadataGod.readMetadata(file: path);
+        try {
+          final metadata = await MetadataGod.readMetadata(file: path);
+          title = metadata.title ?? p.basenameWithoutExtension(path);
+          artist = metadata.artist ?? 'Unknown Artist';
+          artworkBytes = metadata.picture?.data;
+        } catch (e) {
+          debugPrint('Error reading metadata: $e');
+          title = p.basenameWithoutExtension(path);
+          artist = 'Unknown Artist';
+          artworkBytes = null;
+        }
 
-        title =
-            metadata.title ?? file.path.split('/').last.replaceAll('.mp3', '');
-        artist = metadata.artist ?? 'Unknown Artist';
-        artworkBytes = metadata.picture?.data; // Extract cover art bytes
+        if (Platform.isWindows) {
+          await Future.delayed(const Duration(milliseconds: 10));
+          audioUri = Uri.file(file.absolute.path, windows: true);
+        } else {
+          audioUri = file.uri;
+        }
 
-        // 2. Load into Audio Player
-        await _player.setFilePath(path);
+        await _player.stop();
+
+        await _player.setAudioSource(
+          AudioSource.uri(audioUri),
+          preload: false,
+        );
       } else {
-        await _player.setUrl(path);
+        audioUri = Uri.parse(path);
+        await _player.setAudioSource(AudioSource.uri(audioUri));
       }
 
       currentPath = path;
     } catch (e) {
-      debugPrint('Error reading track metadata/audio: $e');
+      debugPrint('Error loading audio source: $e');
     } finally {
+      _isLoading = false;
       notifyListeners();
     }
   }

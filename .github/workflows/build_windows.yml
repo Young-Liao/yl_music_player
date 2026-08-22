@@ -1,0 +1,37 @@
+name: Build Windows App
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: # 支持手动触发
+
+jobs:
+  build:
+    runs-on: windows-latest # 运行在 GitHub 提供的 Windows 环境中
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: 'stable'
+        architecture: x64
+
+    - name: Install Dependencies
+      run: flutter pub get
+
+    - name: Build Windows Executable
+      run: flutter build windows --release
+
+    - name: Upload Windows Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-windows
+        path: build/windows/x64/runner/Release/
