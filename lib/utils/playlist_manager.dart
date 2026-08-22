@@ -30,6 +30,11 @@ class TrackMetadataItem {
     );
   }
 
+  /// Only file path
+  factory TrackMetadataItem.onlyPath(String filePath) {
+    return TrackMetadataItem(filePath: filePath, title: "", artist: "");
+  }
+
   /// Synchronous fallback when metadata parsing fails or isn't ready yet.
   factory TrackMetadataItem.fallback(String path) {
     final fileName = path.split(Platform.pathSeparator).last;
@@ -240,8 +245,9 @@ class PlaylistManager {
 
   /// Synchronously returns cached metadata or fallback representation for list tile builders.
   TrackMetadataItem getCachedMetadataAtIndex(int index) {
-    if (index < 0 || index >= _playlistPaths.length)
+    if (index < 0 || index >= _playlistPaths.length) {
       return TrackMetadataItem.empty();
+    }
     final path = _playlistPaths[index];
     return _peekCache(path) ?? TrackMetadataItem.fallback(path);
   }

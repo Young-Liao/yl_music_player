@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:yl_music_player/controllers/audio_player_controller.dart';
+import 'package:yl_music_player/utils/lyrics_handler.dart';
 import 'package:yl_music_player/utils/playlist_manager.dart';
 import 'package:yl_music_player/utils/track_stepper_mixin.dart';
 import '../pages/playlist_panel.dart';
@@ -9,11 +10,13 @@ import '../themes/theme_provider.dart';
 class PlaybackControls extends StatefulWidget {
   final AudioPlayerController audioController;
   final PlaylistManager playlistManager;
+  final LyricsHandler lyricsManager;
 
   const PlaybackControls({
     super.key,
     required this.audioController,
     required this.playlistManager,
+    required this.lyricsManager,
   });
 
   @override
@@ -25,12 +28,13 @@ class _PlaybackControlsState extends State<PlaybackControls>
   bool get _isPlaying => audioController.isPlaying;
 
   @override
-  // TODO: implement audioController
   AudioPlayerController get audioController => widget.audioController;
 
   @override
-  // TODO: implement playlistManager
   PlaylistManager get playlistManager => widget.playlistManager;
+
+  @override
+  LyricsHandler get lyricsHandler => widget.lyricsManager;
 
   @override
   Widget build(BuildContext context) {
@@ -97,7 +101,8 @@ class _PlaybackControlsState extends State<PlaybackControls>
                   playlistManager: playlistManager,
                   audioController: audioController,
                   onPlayTrack: (String path) async {
-                    audioController.loadTrack(path, isLocalFile: true);
+                    // audioController.loadTrack(path, isLocalFile: true);
+                    loadSong(TrackMetadataItem.onlyPath(path));
                     playlistManager.updateCurrentIndexWithPath(path);
                     await audioController.setPlaying(true);
                     if (mounted) {

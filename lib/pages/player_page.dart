@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:yl_music_player/components/lyrics_view.dart';
 import 'package:yl_music_player/components/playback_controls.dart';
 import 'package:yl_music_player/components/progress_bar.dart';
 import 'package:yl_music_player/components/track_metadata.dart';
 import 'package:yl_music_player/controllers/audio_player_controller.dart';
+import 'package:yl_music_player/utils/lyrics_handler.dart';
 import 'package:yl_music_player/utils/playlist_manager.dart'
     hide TrackMetadataItem;
 import 'package:yl_music_player/utils/track_stepper_mixin.dart';
 import '../themes/theme_provider.dart';
 import '../components/header_bar.dart';
+
+enum PlayerDisplayMode { metadata, lyrics }
 
 class PlayerPage extends StatefulWidget {
   const PlayerPage({super.key});
@@ -21,16 +25,22 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
     playbackCompleted: playCompleted,
   );
   final PlaylistManager _playlistManager = PlaylistManager(
-    jsonFilePath: "./test_playlist.json",  // TODO: Change to Sqlite
+    jsonFilePath: "./test_playlist.json", // TODO: Change to Sqlite
   );
+  final LyricsHandler _lyricsHandler = LyricsHandler();
+
+  PlayerDisplayMode _displayMode = PlayerDisplayMode.metadata;
 
   @override
-  // TODO: implement audioController
   AudioPlayerController get audioController => _audioController;
 
   @override
-  // TODO: implement playlistManager
   PlaylistManager get playlistManager => _playlistManager;
+
+  @override
+  LyricsHandler get lyricsHandler => _lyricsHandler;
+
+  double _currentSliderValue = 0.0;
 
   @override
   void initState() {
@@ -41,6 +51,45 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
   void dispose() {
     _audioController.dispose();
     super.dispose();
+  }
+
+  void _toggleDisplayMode() {
+    setState(() {
+      _displayMode = _displayMode == PlayerDisplayMode.metadata
+          ? PlayerDisplayMode.lyrics
+          : PlayerDisplayMode.metadata;
+    });
+  }
+
+  GestureDetector _buildMetadataAndLyricsSwitcher() {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _toggleDisplayMode,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.95, end: 1.0).animate(animation),
+              child: child,
+            ),
+          );
+        },
+        child: _displayMode == PlayerDisplayMode.metadata
+            ? TrackMetadata(
+                key: const ValueKey('track_metadata'),
+                controller: _audioController,
+              )
+            : LyricsView(
+                key: const ValueKey('lyrics_view'),
+                lyricsHandler: _lyricsHandler,
+                currentPosition: Duration(seconds: _currentSliderValue.toInt()),
+              ),
+      ),
+    );
   }
 
   @override
@@ -76,13 +125,25 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     HeaderBar(),
-                    TrackMetadata(controller: _audioController),
+                    // TrackMetadata(controller: _audioController),
+                    // _buildMetadataAndLyricsSwitcher(),
+                    Expanded(child: _buildMetadataAndLyricsSwitcher()),
                     Column(
                       children: [
-                        ProgressBar(controller: _audioController),
+                        ProgressBar(
+                          controller: _audioController,
+                          onSliderValueChanged: (value) {
+                            if (mounted) {
+                              setState(() {
+                                _currentSliderValue = value;
+                              });
+                            }
+                          },
+                        ),
                         PlaybackControls(
                           audioController: _audioController,
                           playlistManager: _playlistManager,
+                          lyricsManager: _lyricsHandler,
                         ),
                       ],
                     ),
