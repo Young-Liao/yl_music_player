@@ -2,26 +2,35 @@ import 'package:flutter/material.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:yl_music_player/controllers/audio_player_controller.dart';
 import 'package:yl_music_player/utils/playlist_manager.dart';
+import 'package:yl_music_player/utils/track_stepper_mixin.dart';
 import '../pages/playlist_panel.dart';
 import '../themes/theme_provider.dart';
 
 class PlaybackControls extends StatefulWidget {
-  final AudioPlayerController controller;
-  final PlaylistManager manager;
+  final AudioPlayerController audioController;
+  final PlaylistManager playlistManager;
 
   const PlaybackControls({
     super.key,
-    required this.controller,
-    required this.manager,
+    required this.audioController,
+    required this.playlistManager,
   });
 
   @override
   State<PlaybackControls> createState() => _PlaybackControlsState();
 }
 
-class _PlaybackControlsState extends State<PlaybackControls> {
-  bool _isPlaying = false;
-  double _volume = 0.7;
+class _PlaybackControlsState extends State<PlaybackControls>
+    with TrackStepperMixin {
+  bool get _isPlaying => audioController.isPlaying;
+
+  @override
+  // TODO: implement audioController
+  AudioPlayerController get audioController => widget.audioController;
+
+  @override
+  // TODO: implement playlistManager
+  PlaylistManager get playlistManager => widget.playlistManager;
 
   @override
   Widget build(BuildContext context) {
@@ -36,14 +45,18 @@ class _PlaybackControlsState extends State<PlaybackControls> {
           children: [
             // Repeat Button
             IconButton(
-              onPressed: () {},  // TODO: Switch repeat/loop
-              icon: const Icon(BootstrapIcons.repeat),
+              onPressed: () => audioController.loopType == LoopType.repeat
+                  ? audioController.loopType = LoopType.loop
+                  : audioController.loopType = LoopType.repeat,
+              icon: audioController.loopType == LoopType.repeat
+                  ? const Icon(BootstrapIcons.repeat_1)
+                  : const Icon(BootstrapIcons.repeat),
               color: theme.primaryColor,
               iconSize: 20.0,
             ),
             // Skip Previous
             IconButton(
-              onPressed: () {}, // TODO
+              onPressed: prevSong,
               icon: const Icon(Icons.skip_previous_rounded),
               color: theme.textPrimary,
               iconSize: 28.0,
@@ -52,8 +65,7 @@ class _PlaybackControlsState extends State<PlaybackControls> {
             RawMaterialButton(
               onPressed: () {
                 setState(() {
-                  _isPlaying = !_isPlaying;
-                  widget.controller.setPlaying(_isPlaying);
+                  audioController.setPlaying(!_isPlaying);
                 });
               },
               elevation: 4.0,
@@ -71,7 +83,7 @@ class _PlaybackControlsState extends State<PlaybackControls> {
             ),
             // Skip Next
             IconButton(
-              onPressed: () {}, // TODO
+              onPressed: nextSong,
               icon: const Icon(Icons.skip_next_rounded),
               color: theme.textPrimary,
               iconSize: 28.0,
@@ -82,17 +94,14 @@ class _PlaybackControlsState extends State<PlaybackControls> {
                 PlaylistPanel.show(
                   context,
                   isPlaying: _isPlaying,
-                  playlistManager: widget.manager,
-                  audioController: widget.controller,
+                  playlistManager: playlistManager,
+                  audioController: audioController,
                   onPlayTrack: (String path) async {
-                    widget.controller.loadTrack(
-                      path,
-                      isLocalFile: true,
-                    );
-                    _isPlaying = true;
-                    await widget.controller.setPlaying(true);
+                    audioController.loadTrack(path, isLocalFile: true);
+                    playlistManager.updateCurrentIndexWithPath(path);
+                    await audioController.setPlaying(true);
                     if (mounted) {
-                      setState(() { });
+                      setState(() {});
                     }
                   },
                 );
@@ -108,7 +117,7 @@ class _PlaybackControlsState extends State<PlaybackControls> {
         Row(
           children: [
             Icon(
-              _volume == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+              audioController.volume == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded,
               color: theme.textPrimary,
               size: 20.0,
             ),
@@ -116,20 +125,25 @@ class _PlaybackControlsState extends State<PlaybackControls> {
               child: SliderTheme(
                 data: SliderTheme.of(context).copyWith(
                   trackHeight: 3.0,
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5.0),
-                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 10.0),
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 5.0,
+                  ),
+                  overlayShape: const RoundSliderOverlayShape(
+                    overlayRadius: 10.0,
+                  ),
                   activeTrackColor: theme.primaryColor,
-                  inactiveTrackColor: theme.primaryColor.withValues(alpha: 0.12),
+                  inactiveTrackColor: theme.primaryColor.withValues(
+                    alpha: 0.12,
+                  ),
                   thumbColor: theme.primaryColor,
                 ),
                 child: Slider(
-                  value: _volume,
+                  value: audioController.volume,
                   min: 0.0,
                   max: 1.0,
                   onChanged: (val) {
                     setState(() {
-                      _volume = val;
-                      // TODO: Change state in the music player.
+                      audioController.setVolume(val);
                     });
                   },
                 ),

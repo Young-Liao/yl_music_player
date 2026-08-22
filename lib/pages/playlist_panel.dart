@@ -56,6 +56,7 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
   final List<TrackMetadataItem> _displayTracks = [];
   bool _isLoading = true;
   bool _isUpdatingWindow = false;
+  bool _hasInitialScrolled = false;
 
   @override
   void initState() {
@@ -201,6 +202,16 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
             snap: true,
             snapSizes: const [0.65, 1.0],
             builder: (context, scrollController) {
+              // Scroll to current index when loading...
+              if (!_hasInitialScrolled) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted && scrollController.hasClients) {
+                    _scrollToCurrentTrack(scrollController);
+                    _hasInitialScrolled = true; // Mark as complete
+                  }
+                });
+              }
+
               return Container(
                 decoration: BoxDecoration(
                   color: theme.cardBackgroundColor,
@@ -548,5 +559,28 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
         ),
       ],
     );
+  }
+
+  void _scrollToCurrentTrack(ScrollController scrollController) {
+    debugPrint("SCROLLING TO CURRENT TRACK");
+    final currentIndex = widget.playlistManager.currentIndex;
+    if (currentIndex < 0 || currentIndex >= widget.playlistManager.length) return;
+
+    const double itemTotalHeight = 78.0; // 68px item + 10px margin
+    final double targetOffset = currentIndex * itemTotalHeight;
+
+    // Ensure scroll view is attached before attempting to animate/jump
+    if (scrollController.hasClients) {
+      // Clamp to valid max scroll extent to avoid overscroll errors
+      final double maxScroll = scrollController.position.maxScrollExtent;
+      final double clampedOffset = targetOffset.clamp(0.0, maxScroll);
+      debugPrint("Initially Scrolling... target: $clampedOffset of $maxScroll");
+
+      scrollController.animateTo(
+        clampedOffset,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 }

@@ -4,28 +4,36 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:metadata_god/metadata_god.dart';
 
+enum LoopType { loop, repeat }
+
 class AudioPlayerController extends ChangeNotifier {
   final AudioPlayer _player = AudioPlayer();
+  final Function playbackCompleted;
 
   // Track Metadata
-  String currentPath = '';
-  String title = 'Unknown Title';
-  String artist = 'Unknown Artist';
-  Uint8List? artworkBytes; // Stores embedded cover art raw bytes
+  late String currentPath;
+  late String title;
+  late String artist;
+  late Uint8List? artworkBytes; // Stores embedded cover art raw bytes
 
   // Playback State
   bool isPlaying = false;
   Duration position = Duration.zero;
   Duration duration = Duration.zero;
   double volume = 0.7;
+  LoopType loopType = LoopType.loop;  // TODO: Save to settings files.
 
-  AudioPlayerController() {
+  AudioPlayerController({required this.playbackCompleted}) {
     _initStreams();
+    loadEmpty();
   }
 
   void _initStreams() {
     _player.playerStateStream.listen((state) {
       isPlaying = state.playing;
+      if (state.processingState == ProcessingState.completed) {
+        playbackCompleted();
+      }
       notifyListeners();
     });
 
@@ -38,6 +46,14 @@ class AudioPlayerController extends ChangeNotifier {
       duration = dur ?? Duration.zero;
       notifyListeners();
     });
+  }
+
+  void loadEmpty() {
+    currentPath = '';
+    title = 'Unknown Title';
+    artist = 'Unknown Artist';
+    artworkBytes = null;
+    setPlaying(false);
   }
 
   /// Load track and automatically extract embedded ID3 metadata
@@ -53,7 +69,8 @@ class AudioPlayerController extends ChangeNotifier {
         // 1. Extract Metadata from Audio File
         final metadata = await MetadataGod.readMetadata(file: path);
 
-        title = metadata.title ?? file.path.split('/').last.replaceAll('.mp3', '');
+        title =
+            metadata.title ?? file.path.split('/').last.replaceAll('.mp3', '');
         artist = metadata.artist ?? 'Unknown Artist';
         artworkBytes = metadata.picture?.data; // Extract cover art bytes
 

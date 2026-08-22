@@ -50,14 +50,18 @@ class TrackMetadataItem {
     try {
       final metadata = await MetadataGod.readMetadata(file: path);
 
-      final title = metadata.title ?? path.split('/').last.replaceAll('.mp3', '');
+      final title =
+          metadata.title ?? path.split('/').last.replaceAll('.mp3', '');
       final artist = metadata.artist ?? 'Unknown Artist';
       final rawArtwork = metadata.picture?.data;
 
       // Compress artwork byte array to 88x88 px thumbnail to save RAM and avoid render lag
       Uint8List? compressedArtwork;
       if (rawArtwork != null && rawArtwork.isNotEmpty) {
-        compressedArtwork = await _compressImageBytes(rawArtwork, targetWidth: 88);
+        compressedArtwork = await _compressImageBytes(
+          rawArtwork,
+          targetWidth: 88,
+        );
       }
 
       return TrackMetadataItem(
@@ -72,7 +76,10 @@ class TrackMetadataItem {
   }
 
   /// Downscales high-resolution cover images to a thumbnail target width using Flutter UI codecs.
-  static Future<Uint8List?> _compressImageBytes(Uint8List rawBytes, {required int targetWidth}) async {
+  static Future<Uint8List?> _compressImageBytes(
+    Uint8List rawBytes, {
+    required int targetWidth,
+  }) async {
     try {
       final codec = await ui.instantiateImageCodec(
         rawBytes,
@@ -103,11 +110,12 @@ class PlaylistManager {
 
   // LinkedHashMap maintains insertion order for true LRU eviction performance.
   final LinkedHashMap<String, TrackMetadataItem> _lruCache =
-  LinkedHashMap<String, TrackMetadataItem>();
+      LinkedHashMap<String, TrackMetadataItem>();
 
   PlaylistManager({
     required this.jsonFilePath,
-    this.maxCacheSize = 250, // Expanded cache limit to store more tracks in memory
+    this.maxCacheSize =
+        250, // Expanded cache limit to store more tracks in memory
   });
 
   // ---------------------------------------------------------------------------
@@ -115,7 +123,9 @@ class PlaylistManager {
   // ---------------------------------------------------------------------------
 
   int get length => _playlistPaths.length;
+
   int get currentIndex => _currentIndex;
+
   List<String> get playlistPaths => List.unmodifiable(_playlistPaths);
 
   // ---------------------------------------------------------------------------
@@ -163,7 +173,8 @@ class PlaylistManager {
       _lruCache.remove(path);
     } else if (_lruCache.length >= maxCacheSize) {
       // Find oldest key NOT belonging to current active window
-      final currentWindowPaths = (_windowL <= _windowR && _playlistPaths.isNotEmpty)
+      final currentWindowPaths =
+          (_windowL <= _windowR && _playlistPaths.isNotEmpty)
           ? _playlistPaths.sublist(_windowL, _windowR + 1).toSet()
           : <String>{};
 
@@ -195,7 +206,10 @@ class PlaylistManager {
   // ---------------------------------------------------------------------------
 
   /// Updates active window with an offset buffer of 10 items above and below visible range.
-  Future<void> updateScrollWindow(int visibleStartIndex, int visibleEndIndex) async {
+  Future<void> updateScrollWindow(
+    int visibleStartIndex,
+    int visibleEndIndex,
+  ) async {
     if (_playlistPaths.isEmpty) return;
 
     // Buffer range: extend visible start/end by 10 items up & down
@@ -226,7 +240,8 @@ class PlaylistManager {
 
   /// Synchronously returns cached metadata or fallback representation for list tile builders.
   TrackMetadataItem getCachedMetadataAtIndex(int index) {
-    if (index < 0 || index >= _playlistPaths.length) return TrackMetadataItem.empty();
+    if (index < 0 || index >= _playlistPaths.length)
+      return TrackMetadataItem.empty();
     final path = _playlistPaths[index];
     return _peekCache(path) ?? TrackMetadataItem.fallback(path);
   }
@@ -259,7 +274,8 @@ class PlaylistManager {
 
   TrackMetadataItem? prevItem() {
     if (_playlistPaths.isEmpty) return null;
-    _currentIndex = (_currentIndex - 1 + _playlistPaths.length) % _playlistPaths.length;
+    _currentIndex =
+        (_currentIndex - 1 + _playlistPaths.length) % _playlistPaths.length;
     final path = _playlistPaths[_currentIndex];
     return _peekCache(path) ?? _getSyncFallback(path);
   }
@@ -289,7 +305,8 @@ class PlaylistManager {
 
     if (index < _currentIndex) {
       _currentIndex--;
-    } else if (_currentIndex >= _playlistPaths.length && _playlistPaths.isNotEmpty) {
+    } else if (_currentIndex >= _playlistPaths.length &&
+        _playlistPaths.isNotEmpty) {
       _currentIndex = _playlistPaths.length - 1;
     }
 
@@ -330,4 +347,7 @@ class PlaylistManager {
     await updateScrollWindow(0, 20);
     await savePlaylistToJson();
   }
+
+  void updateCurrentIndexWithPath(String filePath) =>
+      _currentIndex = _playlistPaths.indexOf(filePath);
 }
