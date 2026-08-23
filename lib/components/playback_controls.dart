@@ -125,7 +125,7 @@ class _PlaybackControlsState extends State<PlaybackControls>
             ),
           ],
         ),
-        const SizedBox(height: 50),
+        const SizedBox(height: 20),
         // Volume Controls Row
         Row(
           children: [

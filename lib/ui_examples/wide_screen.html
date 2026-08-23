@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YL Music Player</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        :root {
+          --bg-color: #f0f3f8;
+          --window-bg: #ffffff;
+          --text-main: #0f172a;
+          --text-muted: #64748b;
+          --accent: #6366f1;
+          --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+          --border-color: #e2e8f0;
+        }
+
+        * {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+        }
+
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+          background-color: var(--bg-color);
+          color: var(--text-main);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 100vh;
+          overflow: hidden;
+        }
+
+        /* macOS Desktop App Window */
+        .app-window {
+          width: 960px;
+          height: 660px;
+          background: var(--window-bg);
+          border-radius: 16px;
+          box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.04);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          position: relative;
+        }
+
+        /* Window Header / Title Bar */
+        .window-header {
+          height: 52px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 24px;
+          flex-shrink: 0;
+        }
+
+        .window-dots {
+          display: flex;
+          gap: 8px;
+        }
+
+        .dot {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+        }
+
+        .dot-red { background-color: #ff5f56; }
+        .dot-yellow { background-color: #ffbd2e; }
+        .dot-green { background-color: #27c93f; }
+
+        .window-title {
+          font-size: 0.95rem;
+          font-weight: 700;
+          color: var(--text-main);
+          letter-spacing: -0.2px;
+        }
+
+        .theme-toggle {
+          font-size: 1.1rem;
+          color: var(--accent);
+          cursor: pointer;
+        }
+
+        /* Main Split Body */
+        .app-body {
+          flex: 1;
+          display: grid;
+          grid-template-columns: 420px 1fr;
+          overflow: hidden;
+          padding: 0 32px 32px 32px;
+          gap: 32px;
+        }
+
+        /* Left Control Panel */
+        .left-panel {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          padding-top: 8px;
+        }
+
+        .artwork-section {
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+
+        .album-art {
+          width: 280px;
+          height: 280px;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 16px 32px -8px rgba(15, 23, 42, 0.2);
+        }
+
+        .album-art img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .track-meta {
+          text-align: center;
+          margin-top: 18px;
+          width: 100%;
+        }
+
+        .song-title {
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: var(--text-main);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .artist-name {
+          font-size: 0.9rem;
+          color: var(--text-muted);
+          margin-top: 4px;
+          font-weight: 500;
+        }
+
+        /* Controls & Sliders Wrapper */
+        .controls-wrapper {
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        /* Timeline Slider */
+        .timeline-container {
+          width: 100%;
+        }
+
+        .progress-bar {
+          width: 100%;
+          height: 5px;
+          background: var(--border-color);
+          border-radius: 3px;
+          position: relative;
+          cursor: pointer;
+        }
+
+        .progress-fill {
+          width: 45%;
+          height: 100%;
+          background: var(--accent);
+          border-radius: 3px;
+          position: relative;
+        }
+
+        .progress-fill::after {
+          content: '';
+          position: absolute;
+          right: -6px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 12px;
+          height: 12px;
+          background: var(--accent);
+          border-radius: 50%;
+          box-shadow: 0 2px 4px rgba(99, 102, 241, 0.4);
+        }
+
+        .time-labels {
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.75rem;
+          color: var(--text-muted);
+          margin-top: 6px;
+          font-weight: 500;
+        }
+
+        /* Playback Buttons */
+        .playback-buttons {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0 12px;
+        }
+
+        .playback-buttons i {
+          font-size: 1.25rem;
+          color: var(--text-main);
+          cursor: pointer;
+          transition: color 0.2s;
+        }
+
+        .playback-buttons i:hover {
+          color: var(--accent);
+        }
+
+        .play-btn {
+          width: 50px;
+          height: 50px;
+          background: var(--accent-gradient);
+          color: #fff !important;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.4rem !important;
+          box-shadow: 0 8px 20px -4px rgba(99, 102, 241, 0.4);
+        }
+
+        /* Volume Bar */
+        .volume-container {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 0 4px;
+        }
+
+        .volume-container i {
+          font-size: 1rem;
+          color: var(--text-muted);
+        }
+
+        .volume-bar {
+          flex: 1;
+          height: 4px;
+          background: var(--border-color);
+          border-radius: 2px;
+          position: relative;
+          cursor: pointer;
+        }
+
+        .volume-fill {
+          width: 65%;
+          height: 100%;
+          background: var(--accent);
+          border-radius: 2px;
+        }
+
+        /* Right Lyrics Panel */
+        .right-panel {
+          display: flex;
+          flex-direction: column;
+          position: relative;
+          overflow: hidden;
+          padding-left: 20px;
+        }
+
+        .lyrics-viewport {
+          flex: 1;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 26px;
+          padding: 60px 12px;
+          mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+          -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+        }
+
+        .lyrics-viewport::-webkit-scrollbar {
+          display: none;
+        }
+
+        .lyric-line {
+          font-size: 1.2rem;
+          font-weight: 600;
+          color: var(--text-muted);
+          line-height: 1.4;
+          cursor: pointer;
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .lyric-line:hover {
+          color: var(--text-main);
+        }
+
+        .lyric-line.active {
+          font-size: 1.55rem;
+          font-weight: 800;
+          color: var(--accent);
+          text-shadow: 0 4px 16px rgba(99, 102, 241, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-window">
+    <!-- Window Header -->
+    <div class="window-header">
+        <div class="window-dots">
+            <div class="dot dot-red"></div>
+            <div class="dot dot-yellow"></div>
+            <div class="dot dot-green"></div>
+        </div>
+        <div class="window-title">YL Music Player</div>
+        <i class="bi bi-sun-fill theme-toggle"></i>
+    </div>
+
+    <!-- App Body -->
+    <div class="app-body">
+        <!-- Left Panel -->
+        <div class="left-panel">
+            <div class="artwork-section">
+                <div class="album-art">
+                    <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&w=600&q=80" alt="Album Art">
+                </div>
+                <div class="track-meta">
+                    <h1 class="song-title">红玫瑰白玫瑰</h1>
+                    <p class="artist-name">G.E.M.邓紫棋</p>
+                </div>
+            </div>
+
+            <div class="controls-wrapper">
+                <!-- Timeline -->
+                <div class="timeline-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <div class="time-labels">
+                        <span>02:35</span>
+                        <span>04:45</span>
+                    </div>
+                </div>
+
+                <!-- Playback Buttons -->
+                <div class="playback-buttons">
+                    <i class="bi bi-arrow-repeat"></i>
+                    <i class="bi bi-skip-start-fill"></i>
+                    <div class="play-btn">
+                        <i class="bi bi-play-fill" style="margin-left: 2px;"></i>
+                    </div>
+                    <i class="bi bi-skip-end-fill"></i>
+                    <i class="bi bi-list-task"></i>
+                </div>
+
+                <!-- Volume Bar -->
+                <div class="volume-container">
+                    <i class="bi bi-volume-up-fill"></i>
+                    <div class="volume-bar">
+                        <div class="volume-fill"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel -->
+        <div class="right-panel">
+            <div class="lyrics-viewport">
+                <div class="lyric-line">也看到天真的自己</div>
+                <div class="lyric-line">还记得我们当时如此相信</div>
+                <div class="lyric-line">月亮会一直带领</div>
+                <div class="lyric-line">往幸福的路径</div>
+                <div class="lyric-line">月亮也听见你说</div>
+                <div class="lyric-line">说你会一直爱我</div>
+                <div class="lyric-line active">梦里鲜红的蔷薇</div>
+                <div class="lyric-line">睁眼是苍白的玫瑰</div>
+                <div class="lyric-line">它躺在月亮下</div>
+                <div class="lyric-line">纪念着曾经最真挚的爱</div>
+                <div class="lyric-line">记忆里快乐再真切</div>
+                <div class="lyric-line">早就被冷空气凝结</div>
+                <div class="lyric-line">而此刻月亮下</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

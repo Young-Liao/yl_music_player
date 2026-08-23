@@ -106,7 +106,8 @@ class _LyricsViewState extends State<LyricsView> {
         return ListView.builder(
           controller: _scrollController,
           physics: const BouncingScrollPhysics(),
-          itemExtent: _itemHeight,
+          // itemExtent: _itemHeight,
+
           // Enforces deterministic sizing so unrendered lines have known offsets
           padding: EdgeInsets.symmetric(
             vertical: verticalPadding - (_itemHeight / 2),
@@ -119,6 +120,9 @@ class _LyricsViewState extends State<LyricsView> {
 
             return Container(
               alignment: Alignment.center,
+              constraints: const BoxConstraints(
+                minHeight: _itemHeight,
+              ),
               child: AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeOut,
@@ -134,7 +138,7 @@ class _LyricsViewState extends State<LyricsView> {
                   line.text.isEmpty ? '♪' : line.text,
                   textAlign: TextAlign.center,
                   maxLines: 3,
-                  overflow: TextOverflow.fade,
+                  softWrap: true,
                 ),
               ),
             );

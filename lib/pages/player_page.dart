@@ -5,8 +5,7 @@ import 'package:yl_music_player/components/progress_bar.dart';
 import 'package:yl_music_player/components/track_metadata.dart';
 import 'package:yl_music_player/controllers/audio_player_controller.dart';
 import 'package:yl_music_player/utils/lyrics_handler.dart';
-import 'package:yl_music_player/utils/playlist_manager.dart'
-    hide TrackMetadataItem;
+import 'package:yl_music_player/utils/playlist_manager.dart';
 import 'package:yl_music_player/utils/track_stepper_mixin.dart';
 import '../themes/theme_provider.dart';
 import '../components/header_bar.dart';
@@ -21,6 +20,9 @@ class PlayerPage extends StatefulWidget {
 }
 
 class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
+  // Threshold breakpoint width for side-by-side layout
+  static const double _kWideLayoutThreshold = 680.0;
+
   late final AudioPlayerController _audioController = AudioPlayerController(
     playbackCompleted: playCompleted,
   );
@@ -61,6 +63,21 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
     });
   }
 
+  Widget _buildTrackMetadata() {
+    return TrackMetadata(
+      key: const ValueKey('track_metadata'),
+      controller: _audioController,
+    );
+  }
+
+  Widget _buildLyricsView() {
+    return LyricsView(
+      key: const ValueKey('lyrics_view'),
+      lyricsHandler: _lyricsHandler,
+      currentPosition: Duration(seconds: _currentSliderValue.toInt()),
+    );
+  }
+
   GestureDetector _buildMetadataAndLyricsSwitcher() {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -79,16 +96,83 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
           );
         },
         child: _displayMode == PlayerDisplayMode.metadata
-            ? TrackMetadata(
-                key: const ValueKey('track_metadata'),
-                controller: _audioController,
-              )
-            : LyricsView(
-                key: const ValueKey('lyrics_view'),
-                lyricsHandler: _lyricsHandler,
-                currentPosition: Duration(seconds: _currentSliderValue.toInt()),
-              ),
+            ? _buildTrackMetadata()
+            : _buildLyricsView(),
       ),
+    );
+  }
+
+  Widget _buildControlsSection() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ProgressBar(
+          controller: _audioController,
+          onSliderValueChanged: (value) {
+            if (mounted) {
+              setState(() {
+                _currentSliderValue = value;
+              });
+            }
+          },
+        ),
+        PlaybackControls(
+          audioController: _audioController,
+          playlistManager: _playlistManager,
+          lyricsManager: _lyricsHandler,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDynamicLayout() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isWide = constraints.maxWidth >= _kWideLayoutThreshold;
+
+        if (isWide) {
+          // Expanded Desktop Layout (Side-by-Side)
+          return Column(
+            children: [
+              HeaderBar(),
+              const SizedBox(height: 16),
+              Expanded(
+                child: Row(
+                  children: [
+                    // Left Side: Metadata & Controls
+                    Expanded(
+                      flex: 5,
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: Center(
+                              child: _buildTrackMetadata(),
+                            ),
+                          ),
+                          _buildControlsSection(),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 32),
+                    // Right Side: Lyrics
+                    Expanded(flex: 6, child: _buildLyricsView()),
+                  ],
+                ),
+              ),
+            ],
+          );
+        } else {
+          // Compact Portrait Layout (Single Panel Switcher)
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              HeaderBar(),
+              Expanded(child: _buildMetadataAndLyricsSwitcher()),
+              _buildControlsSection(),
+            ],
+          );
+        }
+      },
     );
   }
 
@@ -121,34 +205,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
                     ),
                   ],
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    HeaderBar(),
-                    // TrackMetadata(controller: _audioController),
-                    // _buildMetadataAndLyricsSwitcher(),
-                    Expanded(child: _buildMetadataAndLyricsSwitcher()),
-                    Column(
-                      children: [
-                        ProgressBar(
-                          controller: _audioController,
-                          onSliderValueChanged: (value) {
-                            if (mounted) {
-                              setState(() {
-                                _currentSliderValue = value;
-                              });
-                            }
-                          },
-                        ),
-                        PlaybackControls(
-                          audioController: _audioController,
-                          playlistManager: _playlistManager,
-                          lyricsManager: _lyricsHandler,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                child: _buildDynamicLayout(),
               ),
             ),
           ),
