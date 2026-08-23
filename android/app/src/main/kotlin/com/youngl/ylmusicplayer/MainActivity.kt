@@ -1,4 +1,4 @@
-package com.example.yl_music_player
+package com.youngl.ylmusicplayer
 
 import io.flutter.embedding.android.FlutterActivity
 

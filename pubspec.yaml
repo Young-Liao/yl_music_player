@@ -44,6 +44,8 @@ dependencies:
   audio_metadata_reader: ^0.0.11
   path_provider: ^2.1.6
   path: ^1.9.1
+  audio_service: ^0.18.19
+  change_app_package_name: ^1.5.0
 
 dependency_overrides:
   flutter_rust_bridge: 2.11.1

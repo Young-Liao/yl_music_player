@@ -4,6 +4,7 @@ import 'package:yl_music_player/controllers/audio_player_controller.dart';
 import 'package:yl_music_player/utils/lyrics_handler.dart';
 import 'package:yl_music_player/utils/playlist_manager.dart';
 import 'package:yl_music_player/utils/track_stepper_mixin.dart';
+import '../main.dart';
 import '../pages/playlist_panel.dart';
 import '../themes/theme_provider.dart';
 
@@ -36,6 +37,49 @@ class _PlaybackControlsState extends State<PlaybackControls>
   @override
   LyricsHandler get lyricsHandler => widget.lyricsManager;
 
+  @override
+  void initState() {
+    super.initState();
+    _bindSystemMediaCallbacks();
+  }
+
+  /// Binds system Control Center / Lockscreen actions to internal player logic
+  void _bindSystemMediaCallbacks() {
+    systemMediaHandler.onPlayCallback = () {
+      if (!audioController.isPlaying) {
+        _onTriggerPlayback();
+      }
+    };
+
+    systemMediaHandler.onPauseCallback = () {
+      if (audioController.isPlaying) {
+        _onTriggerPlayback();
+      }
+    };
+
+    systemMediaHandler.onSkipNextCallback = () {
+      nextSong();
+    };
+
+    systemMediaHandler.onSkipPreviousCallback = () {
+      prevSong();
+    };
+  }
+
+  @override
+  void dispose() {
+    // Unbind callbacks when leaving PlayerPage to prevent memory leaks or dangling calls
+    _unbindSystemMediaCallbacks();
+    super.dispose();
+  }
+
+  void _unbindSystemMediaCallbacks() {
+    systemMediaHandler.onPlayCallback = null;
+    systemMediaHandler.onPauseCallback = null;
+    systemMediaHandler.onSkipNextCallback = null;
+    systemMediaHandler.onSkipPreviousCallback = null;
+  }
+
   void _showPlaylistPanel({required bool autoPickFile}) => PlaylistPanel.show(
     context,
     isPlaying: _isPlaying,
@@ -52,6 +96,19 @@ class _PlaybackControlsState extends State<PlaybackControls>
     },
     autoPickFile: autoPickFile,
   );
+
+  void _onTriggerPlayback() {
+    setState(() async {
+      if (playlistManager.playlistPaths.isEmpty) {
+        _showPlaylistPanel(autoPickFile: true);
+      } else {
+        if (!audioController.loaded) {
+          loadSong(await playlistManager.getCurrentMetadata());
+        }
+        audioController.setPlaying(!_isPlaying);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -87,18 +144,7 @@ class _PlaybackControlsState extends State<PlaybackControls>
             ),
             // Play / Pause FAB Button
             RawMaterialButton(
-              onPressed: () {
-                setState(() async {
-                  if (playlistManager.playlistPaths.isEmpty) {
-                    _showPlaylistPanel(autoPickFile: true);
-                  } else {
-                    if (!audioController.loaded) {
-                      loadSong(await playlistManager.getCurrentMetadata());
-                    }
-                    audioController.setPlaying(!_isPlaying);
-                  }
-                });
-              },
+              onPressed: _onTriggerPlayback,
               elevation: 4.0,
               fillColor: theme.primaryColor,
               shape: const CircleBorder(),
