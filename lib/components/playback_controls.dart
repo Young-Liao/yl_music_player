@@ -102,7 +102,7 @@ class _PlaybackControlsState extends State<PlaybackControls>
                   audioController: audioController,
                   onPlayTrack: (String path) async {
                     // audioController.loadTrack(path, isLocalFile: true);
-                    loadSong(TrackMetadataItem.onlyPath(path));
+                    await loadSong(TrackMetadataItem.onlyPath(path));
                     playlistManager.updateCurrentIndexWithPath(path);
                     await audioController.setPlaying(true);
                     if (mounted) {

@@ -7,23 +7,29 @@ mixin TrackStepperMixin {
   AudioPlayerController get audioController;
   LyricsHandler get lyricsHandler;
 
-  void loadSong(TrackMetadataItem? metadata) {
+  Future<void> loadSong(TrackMetadataItem? metadata) async {
     lyricsHandler.loadFromFile(metadata?.filePath);
     if (metadata == null) {
       audioController.loadEmpty();
     } else {
-      audioController.loadTrack(metadata.filePath);
+      await audioController.loadTrack(metadata.filePath);
     }
   }
 
-  void nextSong() {
+  void nextSong() async {
+    final oldState = audioController.isPlaying;
     final nextItem = playlistManager.nextItem();
-    loadSong(nextItem);
+    await loadSong(nextItem);
+    await audioController.setPlaying(oldState);
+    audioController.seek(Duration.zero);
   }
 
-  void prevSong() {
+  void prevSong() async {
+    final oldState = audioController.isPlaying;
     final prevItem = playlistManager.prevItem();
-    loadSong(prevItem);
+    await loadSong(prevItem);
+    await audioController.setPlaying(oldState);
+    audioController.seek(Duration.zero);
   }
 
   void playCompleted() async {

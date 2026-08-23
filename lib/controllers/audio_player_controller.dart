@@ -103,6 +103,11 @@ class AudioPlayerController extends ChangeNotifier {
         await _player.setAudioSource(AudioSource.uri(audioUri));
       }
 
+      final loadedDuration = await _player.load();
+      if (loadedDuration != null) {
+        duration = loadedDuration;
+      }
+
       currentPath = path;
     } catch (e) {
       debugPrint('Error loading audio source: $e');
