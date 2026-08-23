@@ -23,8 +23,9 @@ class AudioPlayerController extends ChangeNotifier {
   Duration position = Duration.zero;
   Duration duration = Duration.zero;
   double volume = 0.7;
-  LoopType loopType = LoopType.loop;  // TODO: Save to settings files.
+  LoopType loopType = LoopType.loop;
   bool _isLoading = false;
+  bool _forceStopped = false;
   File? _windowsTempFile;
 
   AudioPlayerController({required this.playbackCompleted}) {
@@ -35,8 +36,10 @@ class AudioPlayerController extends ChangeNotifier {
   void _initStreams() {
     _player.playerStateStream.listen((state) {
       isPlaying = state.playing;
-      if (state.processingState == ProcessingState.completed) {
+      if (state.processingState == ProcessingState.completed ||
+          (state.processingState == ProcessingState.idle && _forceStopped)) {
         playbackCompleted();
+        _forceStopped = false;
       }
       notifyListeners();
     });
@@ -93,13 +96,18 @@ class AudioPlayerController extends ChangeNotifier {
         if (Platform.isWindows) {
           // 先清理上一个临时文件
           if (_windowsTempFile != null && await _windowsTempFile!.exists()) {
-            try { await _windowsTempFile!.delete(); } catch (_) {}
+            try {
+              await _windowsTempFile!.delete();
+            } catch (_) {}
           }
 
           // 获取系统的临时目录（该目录通常全英文）
           final tempDir = await getTemporaryDirectory();
           // 使用一个固定英文名作为临时文件（如 temp_play.mp3），避开原名中的中文
-          final tempPath = p.join(tempDir.path, 'temp_play${p.extension(path)}');
+          final tempPath = p.join(
+            tempDir.path,
+            'temp_play${p.extension(path)}',
+          );
 
           // 将包含中文的文件内容快速复制过去
           _windowsTempFile = await file.copy(tempPath);
@@ -136,20 +144,23 @@ class AudioPlayerController extends ChangeNotifier {
 
   Future<void> setPlaying(bool play) async {
     if (play) {
-      _player.play();
+      await _player.play();
     } else {
       await _player.pause();
     }
   }
 
-  void seek(Duration pos) {
-    _player.seek(pos);
-  }
+  void seek(Duration pos) => _player.seek(pos);
 
   void setVolume(double val) {
     volume = val;
     _player.setVolume(val);
     notifyListeners();
+  }
+
+  void stop() {
+    _player.stop();
+    _forceStopped = true;
   }
 
   @override

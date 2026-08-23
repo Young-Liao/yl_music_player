@@ -1,29 +1,27 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
 class WindowConfig {
-  // Configure target mobile window dimensions
-  static const double width = 390.0;
-  static const double height = 800.0;
-
   static Future<void> init() async {
-    WidgetsFlutterBinding.ensureInitialized();
-    await windowManager.ensureInitialized();
+    if (!kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
+      await windowManager.ensureInitialized();
 
-    const windowOptions = WindowOptions(
-      size: Size(width, height),
-      minimumSize: Size(width, height),
-      maximumSize: Size(width, height),
-      center: true,
-      backgroundColor: Colors.transparent,
-      skipTaskbar: false,
-      titleBarStyle: TitleBarStyle.normal,
-      title: "Mobile Simulator",
-    );
+      WindowOptions windowOptions = const WindowOptions(
+        size: Size(380, 680), // Initial default player size
+        minimumSize: Size(380, 680), // Enforce minimal window bounds
+        center: true,
+        backgroundColor: Colors.transparent,
+        skipTaskbar: false,
+        titleBarStyle: TitleBarStyle.hidden,
+      );
 
-    windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.show();
-      await windowManager.focus();
-    });
+      windowManager.waitUntilReadyToShow(windowOptions, () async {
+        await windowManager.setMinimumSize(const Size(380, 680));
+        await windowManager.show();
+        await windowManager.focus();
+      });
+    }
   }
 }

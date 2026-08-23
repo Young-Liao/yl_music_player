@@ -36,6 +36,23 @@ class _PlaybackControlsState extends State<PlaybackControls>
   @override
   LyricsHandler get lyricsHandler => widget.lyricsManager;
 
+  void _showPlaylistPanel({required bool autoPickFile}) => PlaylistPanel.show(
+    context,
+    isPlaying: _isPlaying,
+    playlistManager: playlistManager,
+    audioController: audioController,
+    onPlayTrack: (String path) async {
+      // audioController.loadTrack(path, isLocalFile: true);
+      await loadSong(TrackMetadataItem.onlyPath(path));
+      playlistManager.updateCurrentIndexWithPath(path);
+      await audioController.setPlaying(true);
+      if (mounted) {
+        setState(() {});
+      }
+    },
+    autoPickFile: autoPickFile,
+  );
+
   @override
   Widget build(BuildContext context) {
     final theme = CustomThemeProvider.of(context);
@@ -49,9 +66,12 @@ class _PlaybackControlsState extends State<PlaybackControls>
           children: [
             // Repeat Button
             IconButton(
-              onPressed: () => audioController.loopType == LoopType.repeat
-                  ? audioController.loopType = LoopType.loop
-                  : audioController.loopType = LoopType.repeat,
+              onPressed: () {
+                audioController.loopType == LoopType.repeat
+                    ? audioController.loopType = LoopType.loop
+                    : audioController.loopType = LoopType.repeat;
+                setState(() {});
+              },
               icon: audioController.loopType == LoopType.repeat
                   ? const Icon(BootstrapIcons.repeat_1)
                   : const Icon(BootstrapIcons.repeat),
@@ -69,7 +89,11 @@ class _PlaybackControlsState extends State<PlaybackControls>
             RawMaterialButton(
               onPressed: () {
                 setState(() {
-                  audioController.setPlaying(!_isPlaying);
+                  if (playlistManager.playlistPaths.isEmpty) {
+                    _showPlaylistPanel(autoPickFile: true);
+                  } else {
+                    audioController.setPlaying(!_isPlaying);
+                  }
                 });
               },
               elevation: 4.0,
@@ -94,23 +118,7 @@ class _PlaybackControlsState extends State<PlaybackControls>
             ),
             // Playlist Queue
             IconButton(
-              onPressed: () {
-                PlaylistPanel.show(
-                  context,
-                  isPlaying: _isPlaying,
-                  playlistManager: playlistManager,
-                  audioController: audioController,
-                  onPlayTrack: (String path) async {
-                    // audioController.loadTrack(path, isLocalFile: true);
-                    await loadSong(TrackMetadataItem.onlyPath(path));
-                    playlistManager.updateCurrentIndexWithPath(path);
-                    await audioController.setPlaying(true);
-                    if (mounted) {
-                      setState(() {});
-                    }
-                  },
-                );
-              },
+              onPressed: () => _showPlaylistPanel(autoPickFile: false),
               icon: const Icon(BootstrapIcons.list_nested),
               color: theme.textPrimary,
               iconSize: 20.0,
@@ -122,7 +130,9 @@ class _PlaybackControlsState extends State<PlaybackControls>
         Row(
           children: [
             Icon(
-              audioController.volume == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+              audioController.volume == 0
+                  ? Icons.volume_off_rounded
+                  : Icons.volume_up_rounded,
               color: theme.textPrimary,
               size: 20.0,
             ),

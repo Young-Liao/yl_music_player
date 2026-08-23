@@ -6,6 +6,7 @@ import 'package:yl_music_player/themes/theme_provider.dart';
 import 'configs/window.dart';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   await WindowConfig.init();
   await MetadataGod.initialize();
   runApp(const MyApp());

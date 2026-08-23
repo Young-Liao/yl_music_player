@@ -272,16 +272,21 @@ class PlaylistManager {
   }
 
   TrackMetadataItem? nextItem() {
-    if (_playlistPaths.isEmpty) return null;
+    if (_playlistPaths.isEmpty) {
+      _currentIndex = 0;
+      return null;
+    }
     _currentIndex = (_currentIndex + 1) % _playlistPaths.length;
     final path = _playlistPaths[_currentIndex];
     return _peekCache(path) ?? _getSyncFallback(path);
   }
 
   TrackMetadataItem? prevItem() {
-    if (_playlistPaths.isEmpty) return null;
-    _currentIndex =
-        (_currentIndex - 1 + _playlistPaths.length) % _playlistPaths.length;
+    if (_playlistPaths.isEmpty) {
+      _currentIndex = 0;
+      return null;
+    }
+    _currentIndex = (_currentIndex - 1 + _playlistPaths.length) % _playlistPaths.length;
     final path = _playlistPaths[_currentIndex];
     return _peekCache(path) ?? _getSyncFallback(path);
   }
@@ -302,30 +307,44 @@ class PlaylistManager {
     await savePlaylistToJson();
   }
 
-  Future<void> deleteItem(int index) async {
-    if (index < 0 || index >= _playlistPaths.length) return;
+  /// Delete Item and return whether it is current track.
+  Future<bool> deleteItem(int index) async {
+    if (index < 0 || index >= _playlistPaths.length) return false;
 
     final pathToRemove = _playlistPaths[index];
     _playlistPaths.removeAt(index);
     _lruCache.remove(pathToRemove);
 
-    if (index < _currentIndex) {
+    bool isCurrent = false;
+
+    if (_playlistPaths.isEmpty) {
+      _currentIndex = 0;
+    } else if (index < _currentIndex) {
       _currentIndex--;
-    } else if (_currentIndex >= _playlistPaths.length &&
-        _playlistPaths.isNotEmpty) {
-      _currentIndex = _playlistPaths.length - 1;
+    } else if (index == _currentIndex) {
+      // If deleted current track, clamp index to valid bounds
+      if (_currentIndex >= _playlistPaths.length) {
+        _currentIndex = _playlistPaths.length - 1;
+      }
+      isCurrent = true;
     }
 
     await savePlaylistToJson();
+
+    return isCurrent;
   }
 
   Future<void> moveItem(int oldIndex, int newIndex) async {
     if (oldIndex < 0 || oldIndex >= _playlistPaths.length) return;
-    if (newIndex < 0 || newIndex >= _playlistPaths.length) return;
+
+    // ReorderableList passes target insertion index up to list length
+    if (newIndex < 0 || newIndex > _playlistPaths.length) return;
 
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
+
+    if (oldIndex == newIndex) return;
 
     final item = _playlistPaths.removeAt(oldIndex);
     _playlistPaths.insert(newIndex, item);

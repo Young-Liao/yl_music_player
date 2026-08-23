@@ -12,6 +12,7 @@ class PlaylistPanel extends StatefulWidget {
   final AudioPlayerController audioController;
   final ValueChanged<String> onPlayTrack;
   final bool isPlaying;
+  final bool autoPickFile;
 
   const PlaylistPanel({
     super.key,
@@ -19,6 +20,7 @@ class PlaylistPanel extends StatefulWidget {
     required this.audioController,
     required this.onPlayTrack,
     required this.isPlaying,
+    this.autoPickFile = false,
   });
 
   static Future<void> show(
@@ -27,6 +29,7 @@ class PlaylistPanel extends StatefulWidget {
     required AudioPlayerController audioController,
     required ValueChanged<String> onPlayTrack,
     required bool isPlaying,
+    bool autoPickFile = false,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -40,6 +43,7 @@ class PlaylistPanel extends StatefulWidget {
           audioController: audioController,
           onPlayTrack: onPlayTrack,
           isPlaying: isPlaying,
+          autoPickFile: autoPickFile,
         );
       },
     );
@@ -64,6 +68,11 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
     _initializePlaylistView();
 
     widget.audioController.addListener(_onControllerChanged);
+    if (widget.autoPickFile) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _handleAddAndPlay();
+      });
+    }
   }
 
   @override
@@ -106,9 +115,9 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
     }
   }
 
-  void _handleAdd() async {
+  Future<List<String>> _handleAdd() async {
     List<String> paths = await pickMultipleMusicFiles();
-    if (paths.isEmpty) return;
+    if (paths.isEmpty) return paths;
 
     for (final path in paths) {
       await widget.playlistManager.addFileNextToCurrent(path);
@@ -116,6 +125,17 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
 
     _syncMetadataList();
     if (mounted) setState(() {});
+
+    return paths;
+  }
+
+  Future<void> _handleAddAndPlay() async {
+    final paths = await _handleAdd();
+
+    // Automatically play the first added song
+    if (paths.isNotEmpty) {
+      widget.onPlayTrack(paths.first);
+    }
   }
 
   void _handleScrollNotification(ScrollNotification notification) {
@@ -161,7 +181,10 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
   }
 
   Future<void> _handleDelete(int index) async {
-    await widget.playlistManager.deleteItem(index);
+    final isCurrent = await widget.playlistManager.deleteItem(index);
+    if (isCurrent) {
+      widget.audioController.stop();
+    }
     setState(() => _syncMetadataList());
   }
 
@@ -170,14 +193,20 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
     setState(() => _syncMetadataList());
   }
 
+  // Remove the artificial Future.delayed and sync state immediately
   Future<void> _handleReorder(int oldIndex, int newIndex) async {
-    await widget.playlistManager.moveItem(oldIndex, newIndex);
+    setState(() {
+      // Perform optimistic local updates to prevent flash
+      if (oldIndex < newIndex) newIndex -= 1;
+      final item = _displayTracks.removeAt(oldIndex);
+      _displayTracks.insert(newIndex, item);
+    });
 
-    // Brief delay prevents widget key lifecycle thrashing after dragging
-    await Future.delayed(const Duration(milliseconds: 150));
-    if (mounted) {
-      setState(() => _syncMetadataList());
-    }
+    await widget.playlistManager.moveItem(
+      oldIndex,
+      newIndex < oldIndex ? newIndex : newIndex + 1,
+    );
+    _syncMetadataList();
   }
 
   @override
@@ -389,10 +418,13 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
           final track = _displayTracks[index];
           final isActive = track.filePath == widget.audioController.currentPath;
 
-          return Container(
-            key: ValueKey(track.filePath),
-            margin: const EdgeInsets.only(bottom: 10.0),
-            child: _buildTrackTile(context, theme, track, index, isActive),
+          return ReorderableDelayedDragStartListener(
+            key: ValueKey('track_${index}_${track.filePath}'),
+            index: index,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 10.0),
+              child: _buildTrackTile(context, theme, track, index, isActive),
+            ),
           );
         },
       ),

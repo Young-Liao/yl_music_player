@@ -133,8 +133,8 @@ class _LyricsViewState extends State<LyricsView> {
                 child: Text(
                   line.text.isEmpty ? '♪' : line.text,
                   textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: 3,
+                  overflow: TextOverflow.fade,
                 ),
               ),
             );
