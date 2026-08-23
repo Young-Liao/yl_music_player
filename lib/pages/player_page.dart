@@ -75,6 +75,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
       key: const ValueKey('lyrics_view'),
       lyricsHandler: _lyricsHandler,
       currentPosition: Duration(seconds: _currentSliderValue.toInt()),
+      onSeekTo: (value) => audioController.seek(value),
     );
   }
 

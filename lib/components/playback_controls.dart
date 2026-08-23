@@ -88,10 +88,13 @@ class _PlaybackControlsState extends State<PlaybackControls>
             // Play / Pause FAB Button
             RawMaterialButton(
               onPressed: () {
-                setState(() {
+                setState(() async {
                   if (playlistManager.playlistPaths.isEmpty) {
                     _showPlaylistPanel(autoPickFile: true);
                   } else {
+                    if (!audioController.loaded) {
+                      loadSong(await playlistManager.getCurrentMetadata());
+                    }
                     audioController.setPlaying(!_isPlaying);
                   }
                 });

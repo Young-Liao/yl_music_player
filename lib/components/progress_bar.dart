@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:yl_music_player/controllers/audio_player_controller.dart';
 import '../themes/theme_provider.dart';
+import '../utils/algorithms.dart';
 
 class ProgressBar extends StatefulWidget {
   final AudioPlayerController controller;
@@ -45,13 +46,6 @@ class _ProgressBarState extends State<ProgressBar> {
         widget.onSliderValueChanged?.call(currentSeconds);
       }
     }
-  }
-
-  String _formatDuration(double seconds) {
-    final duration = Duration(seconds: seconds.toInt());
-    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final secs = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$secs';
   }
 
   @override
@@ -112,7 +106,7 @@ class _ProgressBarState extends State<ProgressBar> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                _formatDuration(
+                formatDuration(
                   _isDragging
                       ? _dragValue.toDouble()
                       : controller.position.inSeconds.toDouble(),
@@ -124,7 +118,7 @@ class _ProgressBarState extends State<ProgressBar> {
                 ),
               ),
               Text(
-                _formatDuration(maxDurationSeconds),
+                formatDuration(maxDurationSeconds),
                 style: TextStyle(
                   fontSize: 12.0,
                   fontWeight: FontWeight.w500,

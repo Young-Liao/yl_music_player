@@ -20,6 +20,7 @@ class AudioPlayerController extends ChangeNotifier {
 
   // Playback State
   bool isPlaying = false;
+  bool loaded = false;
   Duration position = Duration.zero;
   Duration duration = Duration.zero;
   double volume = 0.7;
@@ -38,6 +39,7 @@ class AudioPlayerController extends ChangeNotifier {
       isPlaying = state.playing;
       if (state.processingState == ProcessingState.completed ||
           (state.processingState == ProcessingState.idle && _forceStopped)) {
+        loaded = false;
         playbackCompleted();
         _forceStopped = false;
       }
@@ -134,6 +136,7 @@ class AudioPlayerController extends ChangeNotifier {
       }
 
       currentPath = path;
+      loaded = true;
     } catch (e) {
       debugPrint('Error loading audio source: $e');
     } finally {
@@ -161,6 +164,7 @@ class AudioPlayerController extends ChangeNotifier {
   void stop() {
     _player.stop();
     _forceStopped = true;
+    loaded = false;
   }
 
   @override
