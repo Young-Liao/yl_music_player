@@ -5,7 +5,8 @@ import 'package:yl_music_player/utils/file/file_picker.dart';
 import '../components/animated_equalizer.dart';
 import '../themes/app_theme_interface.dart';
 import '../themes/theme_provider.dart';
-import '../utils/playlist_manager.dart';
+import '../controllers/playlist_manager.dart';
+import '../utils/data_structures/track_metadata_item.dart';
 
 class PlaylistPanel extends StatefulWidget {
   final PlaylistManager playlistManager;

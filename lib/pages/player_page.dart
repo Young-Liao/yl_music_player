@@ -3,12 +3,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:yl_music_player/components/lyrics_view.dart';
+import 'package:yl_music_player/main.dart';
+import 'package:yl_music_player/utils/data_structures/track_metadata_item.dart';
 import '../components/playback_controls.dart';
 import 'package:yl_music_player/components/progress_bar.dart';
 import 'package:yl_music_player/components/track_metadata.dart';
 import 'package:yl_music_player/controllers/audio_player_controller.dart';
-import 'package:yl_music_player/utils/lyrics_handler.dart';
-import 'package:yl_music_player/utils/playlist_manager.dart';
+import 'package:yl_music_player/controllers/lyrics_handler.dart';
+import 'package:yl_music_player/controllers/playlist_manager.dart';
 import 'package:yl_music_player/utils/track_stepper_mixin.dart';
 import '../themes/theme_provider.dart';
 import '../components/header_bar.dart';
@@ -28,9 +30,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
   late final AudioPlayerController _audioController = AudioPlayerController(
     playbackCompleted: playCompleted,
   );
-  final PlaylistManager _playlistManager = PlaylistManager(
-    jsonFilePath: "./test_playlist.json",
-  );
+  final PlaylistManager _playlistManager = PlaylistManager(db: dbStorage);
   final LyricsHandler _lyricsHandler = LyricsHandler();
 
   PlayerDisplayMode _displayMode = PlayerDisplayMode.metadata;
@@ -50,6 +50,13 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
   void initState() {
     super.initState();
     audioController.lyricsHandler = lyricsHandler;
+    playlistManager.loadPlaylistFromDb(
+      onSongReady: (filePath) async {
+        // Replace with your actual PlayerController or AudioPlayer instance
+        await loadSong(TrackMetadataItem.onlyPath(filePath));
+        debugPrint("Successfully loaded song at index ${playlistManager.currentIndex}: $filePath");
+      },
+    );
   }
 
   @override

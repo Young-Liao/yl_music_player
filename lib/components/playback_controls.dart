@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:yl_music_player/controllers/audio_player_controller.dart';
-import 'package:yl_music_player/utils/lyrics_handler.dart';
-import 'package:yl_music_player/utils/playlist_manager.dart';
+import 'package:yl_music_player/controllers/lyrics_handler.dart';
+import 'package:yl_music_player/controllers/playlist_manager.dart';
 import 'package:yl_music_player/utils/track_stepper_mixin.dart';
 import '../main.dart';
 import '../pages/playlist_panel.dart';
 import '../themes/theme_provider.dart';
+import '../utils/data_structures/track_metadata_item.dart';
 
 class PlaybackControls extends StatefulWidget {
   final AudioPlayerController audioController;
@@ -97,17 +98,17 @@ class _PlaybackControlsState extends State<PlaybackControls>
     autoPickFile: autoPickFile,
   );
 
-  void _onTriggerPlayback() {
-    setState(() async {
-      if (playlistManager.playlistPaths.isEmpty) {
-        _showPlaylistPanel(autoPickFile: true);
-      } else {
-        if (!audioController.loaded) {
-          loadSong(await playlistManager.getCurrentMetadata());
-        }
-        audioController.setPlaying(!_isPlaying);
+  void _onTriggerPlayback() async {
+    final song = await playlistManager.getCurrentMetadata();
+    if (playlistManager.playlistPaths.isEmpty) {
+      _showPlaylistPanel(autoPickFile: true);
+    } else {
+      if (!audioController.loaded) {
+        await loadSong(song);
       }
-    });
+      audioController.setPlaying(!_isPlaying);
+    }
+    setState(() {});
   }
 
   @override

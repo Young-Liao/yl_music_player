@@ -5,15 +5,29 @@ import 'package:yl_music_player/pages/player_page.dart';
 import 'package:yl_music_player/system/system_media_handler.dart';
 import 'package:yl_music_player/themes/theme_provider.dart';
 import 'package:yl_music_player/themes/themes.dart';
+import 'package:yl_music_player/utils/storage/database/interface.dart';
+import 'package:yl_music_player/utils/storage/database/sqlite.dart';
+import 'package:yl_music_player/utils/storage/settings.dart';
 import 'configs/window.dart';
 import 'controllers/theme_controller.dart';
 
 late SystemMediaHandler systemMediaHandler;
+late IDatabaseStorage dbStorage;
 
 void main() async {
+  /// Window
   WidgetsFlutterBinding.ensureInitialized();
   await WindowConfig.init();
 
+  /// Storage
+  await SettingsStorage.instance.init();
+  dbStorage = SQLiteStorage();
+  await dbStorage.init();
+
+  /// Theme
+  ThemeController.instance.init();
+
+  /// System
   systemMediaHandler = await AudioService.init(
     builder: () => SystemMediaHandler(),
     config: const AudioServiceConfig(

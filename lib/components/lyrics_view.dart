@@ -5,7 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:yl_music_player/themes/app_theme_interface.dart';
 import '../themes/theme_provider.dart';
 import '../utils/algorithms.dart';
-import '../utils/lyrics_handler.dart';
+import '../controllers/lyrics_handler.dart';
 import 'dotted_line_painter.dart';
 
 /// A synchronized, auto-scrolling lyrics view with interactive seek-overlay capabilities.

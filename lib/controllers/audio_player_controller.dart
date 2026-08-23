@@ -6,8 +6,9 @@ import 'package:metadata_god/metadata_god.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:yl_music_player/controllers/system_media_sync_controller.dart';
+import 'package:yl_music_player/utils/storage/settings.dart';
 
-import '../utils/lyrics_handler.dart';
+import 'lyrics_handler.dart';
 
 enum LoopType { loop, repeat }
 
@@ -26,7 +27,7 @@ class AudioPlayerController extends ChangeNotifier {
   bool loaded = false;
   Duration position = Duration.zero;
   Duration duration = Duration.zero;
-  double volume = 0.7;
+  double volume = SettingsStorage.instance.volume;
   LoopType loopType = LoopType.loop;
   bool _isLoading = false;
   bool _forceStopped = false;
@@ -193,6 +194,7 @@ class AudioPlayerController extends ChangeNotifier {
   void setVolume(double val) {
     volume = val;
     _player.setVolume(val);
+    SettingsStorage.instance.setVolume(volume);
     notifyListeners();
   }
 
