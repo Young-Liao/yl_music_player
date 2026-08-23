@@ -1,6 +1,9 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:yl_music_player/components/lyrics_view.dart';
-import 'package:yl_music_player/components/playback_controls.dart';
+import '../components/playback_controls.dart';
 import 'package:yl_music_player/components/progress_bar.dart';
 import 'package:yl_music_player/components/track_metadata.dart';
 import 'package:yl_music_player/controllers/audio_player_controller.dart';
@@ -20,14 +23,13 @@ class PlayerPage extends StatefulWidget {
 }
 
 class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
-  // Threshold breakpoint width for side-by-side layout
   static const double _kWideLayoutThreshold = 680.0;
 
   late final AudioPlayerController _audioController = AudioPlayerController(
     playbackCompleted: playCompleted,
   );
   final PlaylistManager _playlistManager = PlaylistManager(
-    jsonFilePath: "./test_playlist.json", // TODO: Change to Sqlite
+    jsonFilePath: "./test_playlist.json",
   );
   final LyricsHandler _lyricsHandler = LyricsHandler();
 
@@ -133,15 +135,13 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
         final bool isWide = constraints.maxWidth >= _kWideLayoutThreshold;
 
         if (isWide) {
-          // Expanded Desktop Layout (Side-by-Side)
           return Column(
             children: [
-              HeaderBar(),
+              const HeaderBar(),
               const SizedBox(height: 16),
               Expanded(
                 child: Row(
                   children: [
-                    // Left Side: Metadata & Controls
                     Expanded(
                       flex: 5,
                       child: Column(
@@ -152,7 +152,6 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
                       ),
                     ),
                     const SizedBox(width: 32),
-                    // Right Side: Lyrics
                     Expanded(flex: 6, child: _buildLyricsView()),
                   ],
                 ),
@@ -160,11 +159,10 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
             ],
           );
         } else {
-          // Compact Portrait Layout (Single Panel Switcher)
           return Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              HeaderBar(),
+              const HeaderBar(),
               Expanded(child: _buildMetadataAndLyricsSwitcher()),
               _buildControlsSection(),
             ],
@@ -180,32 +178,49 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
       listenable: _audioController,
       builder: (context, _) {
         final theme = CustomThemeProvider.of(context);
+        final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+
         return Scaffold(
           backgroundColor: theme.outerBackgroundColor,
-          body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Container(
-                width: double.infinity,
-                height: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24.0,
-                  vertical: 28.0,
-                ),
-                decoration: BoxDecoration(
-                  color: theme.cardBackgroundColor,
-                  borderRadius: BorderRadius.circular(theme.cardCornerRadius),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
+          body: Stack(
+            children: [
+              // 1. Background layer: Full window DragToMoveArea for all outer gaps
+              if (isDesktop)
+                Positioned.fill(
+                  child: DragToMoveArea(
+                    child: Container(
+                      color: Colors.transparent,
                     ),
-                  ],
+                  ),
                 ),
-                child: _buildDynamicLayout(),
+
+              // 2. Foreground layer: Main Card Content
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24.0,
+                      vertical: 28.0,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.cardBackgroundColor,
+                      borderRadius: BorderRadius.circular(theme.cardCornerRadius),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: _buildDynamicLayout(),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         );
       },
