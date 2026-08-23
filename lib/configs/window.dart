@@ -4,7 +4,7 @@ import 'package:window_manager/window_manager.dart';
 class WindowConfig {
   // Configure target mobile window dimensions
   static const double width = 390.0;
-  static const double height = 844.0;
+  static const double height = 800.0;
 
   static Future<void> init() async {
     WidgetsFlutterBinding.ensureInitialized();

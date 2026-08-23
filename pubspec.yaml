@@ -42,6 +42,7 @@ dependencies:
   flutter_slidable: ^4.0.3
   file_picker: ^12.0.0
   audio_metadata_reader: ^0.0.11
+  path_provider: ^2.1.6
 
 dependency_overrides:
   flutter_rust_bridge: 2.11.1

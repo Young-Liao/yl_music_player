@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:metadata_god/metadata_god.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 enum LoopType { loop, repeat }
 
@@ -24,6 +25,7 @@ class AudioPlayerController extends ChangeNotifier {
   double volume = 0.7;
   LoopType loopType = LoopType.loop;  // TODO: Save to settings files.
   bool _isLoading = false;
+  File? _windowsTempFile;
 
   AudioPlayerController({required this.playbackCompleted}) {
     _initStreams();
@@ -64,8 +66,6 @@ class AudioPlayerController extends ChangeNotifier {
     _isLoading = true;
 
     try {
-      Uri audioUri;
-
       if (isLocalFile) {
         final file = File(path);
         if (!await file.exists()) {
@@ -73,34 +73,51 @@ class AudioPlayerController extends ChangeNotifier {
           return;
         }
 
+        // 1. 尝试使用 MetadataGod 读取元数据（处理中文路径文件名 fallback）
         try {
-          final metadata = await MetadataGod.readMetadata(file: path);
-          title = metadata.title ?? p.basenameWithoutExtension(path);
+          final metadata = await MetadataGod.readMetadata(file: file.path);
+          title = metadata.title ?? p.basenameWithoutExtension(file.path);
           artist = metadata.artist ?? 'Unknown Artist';
           artworkBytes = metadata.picture?.data;
+          if (metadata.durationMs != null) {
+            duration = Duration(milliseconds: metadata.durationMs!.toInt());
+          }
         } catch (e) {
           debugPrint('Error reading metadata: $e');
-          title = p.basenameWithoutExtension(path);
+          title = p.basenameWithoutExtension(file.path);
           artist = 'Unknown Artist';
           artworkBytes = null;
         }
-
-        if (Platform.isWindows) {
-          await Future.delayed(const Duration(milliseconds: 10));
-          audioUri = Uri.file(file.absolute.path, windows: true);
-        } else {
-          audioUri = file.uri;
-        }
-
         await _player.stop();
 
-        await _player.setAudioSource(
-          AudioSource.uri(audioUri),
-          preload: false,
-        );
+        if (Platform.isWindows) {
+          // 先清理上一个临时文件
+          if (_windowsTempFile != null && await _windowsTempFile!.exists()) {
+            try { await _windowsTempFile!.delete(); } catch (_) {}
+          }
+
+          // 获取系统的临时目录（该目录通常全英文）
+          final tempDir = await getTemporaryDirectory();
+          // 使用一个固定英文名作为临时文件（如 temp_play.mp3），避开原名中的中文
+          final tempPath = p.join(tempDir.path, 'temp_play${p.extension(path)}');
+
+          // 将包含中文的文件内容快速复制过去
+          _windowsTempFile = await file.copy(tempPath);
+
+          // 让播放器去播放这个绝对不包含中文的临时文件
+          await _player.setAudioSource(
+            AudioSource.file(_windowsTempFile!.path),
+            preload: false,
+          );
+        } else {
+          // macOS 依然走原有的正常逻辑
+          await _player.setAudioSource(
+            AudioSource.uri(file.uri),
+            preload: false,
+          );
+        }
       } else {
-        audioUri = Uri.parse(path);
-        await _player.setAudioSource(AudioSource.uri(audioUri));
+        await _player.setAudioSource(AudioSource.uri(Uri.parse(path)));
       }
 
       final loadedDuration = await _player.load();
