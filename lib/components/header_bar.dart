@@ -12,39 +12,60 @@ class HeaderBar extends StatelessWidget {
     final theme = CustomThemeProvider.of(context);
     final isWindowsOrLinux = !kIsWeb && (Platform.isWindows || Platform.isLinux);
 
-    return DragToMoveArea(
-      child: Container(
-        height: 48.0,
-        color: Colors.transparent,
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: Row(
-          children: [
-            Text(
-              'YL Music Player',
-              style: TextStyle(
-                fontSize: 18.0,
-                fontWeight: FontWeight.w700,
-                color: theme.textPrimary,
-              ),
-            ),
-            const Spacer(),
-            IconButton(
-              onPressed: () {
-                // TODO: SWITCHING THEMES
-              },
-              icon: Icon(
-                Icons.wb_sunny_rounded,
-                color: theme.primaryColor,
-              ),
-              splashRadius: 20,
-            ),
-            if (isWindowsOrLinux) ...[
-              const SizedBox(width: 8.0),
-              _WindowButtons(theme: theme),
-            ],
-          ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 1. Top padding strip transformed into a drag handle
+        DragToMoveArea(
+          child: Container(
+            height: 20.0, // Fills the gap above the title
+            color: Colors.transparent,
+          ),
         ),
-      ),
+
+        // 2. Main title row
+        SizedBox(
+          height: 40.0,
+          child: Row(
+            children: [
+              Expanded(
+                child: DragToMoveArea(
+                  child: Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    alignment: Alignment.centerLeft,
+                    color: Colors.transparent,
+                    child: Text(
+                      'YL Music Player',
+                      style: TextStyle(
+                        fontSize: 18.0,
+                        fontWeight: FontWeight.w700,
+                        color: theme.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              IconButton(
+                onPressed: () {
+                  // TODO: SWITCHING THEMES
+                },
+                icon: Icon(
+                  Icons.wb_sunny_rounded,
+                  color: theme.primaryColor,
+                ),
+                splashRadius: 20,
+              ),
+
+              if (isWindowsOrLinux) ...[
+                const SizedBox(width: 4.0),
+                _WindowButtons(theme: theme),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

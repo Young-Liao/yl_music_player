@@ -178,7 +178,9 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
       listenable: _audioController,
       builder: (context, _) {
         final theme = CustomThemeProvider.of(context);
-        final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+        final isDesktop =
+            !kIsWeb &&
+            (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
         return Scaffold(
           backgroundColor: theme.outerBackgroundColor,
@@ -188,9 +190,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
               if (isDesktop)
                 Positioned.fill(
                   child: DragToMoveArea(
-                    child: Container(
-                      color: Colors.transparent,
-                    ),
+                    child: Container(color: Colors.transparent),
                   ),
                 ),
 
@@ -201,13 +201,18 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
                   child: Container(
                     width: double.infinity,
                     height: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24.0,
-                      vertical: 28.0,
+                    padding: const EdgeInsets.only(
+                      left: 24.0,
+                      right: 24.0,
+                      top: 8.0,
+                      // Reduced so HeaderBar's top DragToMoveArea controls this area
+                      bottom: 28.0,
                     ),
                     decoration: BoxDecoration(
                       color: theme.cardBackgroundColor,
-                      borderRadius: BorderRadius.circular(theme.cardCornerRadius),
+                      borderRadius: BorderRadius.circular(
+                        theme.cardCornerRadius,
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.05),
