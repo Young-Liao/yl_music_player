@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YL Music Player - Sci-Fi Hologram Tech</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        :root {
+          /* 未来科技感主题调色板 */
+          --bg-core: #030712;
+          --surface-dark: rgba(15, 23, 42, 0.65);
+          --surface-border: rgba(56, 189, 248, 0.25);
+          --tech-blue: #38bdf8;
+          --tech-indigo: #6366f1;
+          --tech-glow: rgba(56, 189, 248, 0.4);
+          --text-glow: 0 0 10px rgba(56, 189, 248, 0.6);
+          --text-light: #f1f5f9;
+          --text-dim: #475569;
+          --text-muted: #94a3b8;
+        }
+
+        * {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+        }
+
+        body {
+          font-family: 'SF Pro Display', -apple-system, 'Segoe UI', Roboto, sans-serif;
+          background-color: var(--bg-core);
+          background-image:
+            radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 60%),
+            linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+          background-size: 100% 100%, 40px 40px, 40px 40px;
+          color: var(--text-light);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 100vh;
+          overflow: hidden;
+        }
+
+        /* 全息悬浮窗口 */
+        .app-window {
+          width: 960px;
+          height: 660px;
+          background: var(--surface-dark);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border-radius: 20px;
+          border: 1px solid var(--surface-border);
+          box-shadow:
+            0 0 50px rgba(0, 0, 0, 0.8),
+            0 0 30px rgba(56, 189, 248, 0.15),
+            inset 0 0 20px rgba(56, 189, 248, 0.05);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          position: relative;
+        }
+
+        /* 窗口光纤边框修饰点 */
+        .app-window::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 0; right: 0;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, var(--tech-blue), transparent);
+        }
+
+        /* 顶部黑科技状态栏 */
+        .window-header {
+          height: 52px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 24px;
+          border-bottom: 1px solid rgba(56, 189, 248, 0.12);
+          background: rgba(15, 23, 42, 0.4);
+        }
+
+        .window-dots {
+          display: flex;
+          gap: 8px;
+        }
+
+        .dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+        }
+
+        .dot-red { background-color: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.6); }
+        .dot-yellow { background-color: #f59e0b; box-shadow: 0 0 8px rgba(245, 158, 11, 0.6); }
+        .dot-green { background-color: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.6); }
+
+        .window-title {
+          font-size: 0.85rem;
+          font-weight: 700;
+          letter-spacing: 2px;
+          color: var(--tech-blue);
+          text-shadow: var(--text-glow);
+        }
+
+        .tech-badge {
+          font-family: monospace;
+          font-size: 0.7rem;
+          color: var(--tech-blue);
+          background: rgba(56, 189, 248, 0.1);
+          border: 1px solid rgba(56, 189, 248, 0.3);
+          padding: 3px 8px;
+          border-radius: 4px;
+          letter-spacing: 1px;
+        }
+
+        /* 主内容区 */
+        .app-body {
+          flex: 1;
+          display: grid;
+          grid-template-columns: 420px 1fr;
+          padding: 32px;
+          gap: 32px;
+          overflow: hidden;
+        }
+
+        /* 左侧控制区 */
+        .left-panel {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+        }
+
+        .artwork-section {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+
+        /* 悬浮唱片 / 能量核 */
+        .album-art {
+          width: 270px;
+          height: 270px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(15, 23, 42, 0.9) 30%, rgba(56, 189, 248, 0.05) 100%);
+          border: 1px solid rgba(56, 189, 248, 0.4);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          position: relative;
+          box-shadow:
+            0 0 30px rgba(56, 189, 248, 0.2),
+            inset 0 0 15px rgba(56, 189, 248, 0.2);
+        }
+
+        .album-art::after {
+          content: '';
+          position: absolute;
+          inset: -8px;
+          border-radius: 50%;
+          border: 1px dashed rgba(56, 189, 248, 0.3);
+          animation: rotate 20s linear infinite;
+        }
+
+        @keyframes rotate {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        .album-art i {
+          font-size: 4.5rem;
+          color: var(--tech-blue);
+          filter: drop-shadow(0 0 12px var(--tech-blue));
+        }
+
+        .track-meta {
+          text-align: center;
+          margin-top: 24px;
+        }
+
+        .song-title {
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: #ffffff;
+          letter-spacing: 1px;
+        }
+
+        .artist-name {
+          font-size: 0.85rem;
+          color: var(--text-muted);
+          margin-top: 6px;
+          letter-spacing: 0.5px;
+        }
+
+        /* 播放控制与进度条 */
+        .controls-wrapper {
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+        }
+
+        .progress-bar {
+          width: 100%;
+          height: 4px;
+          background: rgba(255, 255, 255, 0.08);
+          border-radius: 2px;
+          position: relative;
+          cursor: pointer;
+        }
+
+        .progress-fill {
+          width: 0%;
+          height: 100%;
+          background: linear-gradient(90deg, var(--tech-indigo), var(--tech-blue));
+          border-radius: 2px;
+          box-shadow: 0 0 10px var(--tech-blue);
+        }
+
+        .time-labels {
+          display: flex;
+          justify-content: space-between;
+          font-family: monospace;
+          font-size: 0.75rem;
+          color: var(--text-muted);
+          margin-top: 8px;
+        }
+
+        .playback-buttons {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0 12px;
+        }
+
+        .playback-buttons i {
+          font-size: 1.2rem;
+          color: var(--text-muted);
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .playback-buttons i:hover {
+          color: var(--tech-blue);
+          text-shadow: var(--text-glow);
+        }
+
+        .play-btn {
+          width: 52px;
+          height: 52px;
+          background: rgba(56, 189, 248, 0.1);
+          border: 1px solid var(--tech-blue);
+          color: var(--tech-blue) !important;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.4rem !important;
+          box-shadow: 0 0 20px var(--tech-glow);
+          transition: all 0.2s;
+        }
+
+        .play-btn:hover {
+          background: var(--tech-blue);
+          color: #030712 !important;
+          transform: scale(1.05);
+          box-shadow: 0 0 30px var(--tech-blue);
+        }
+
+        .volume-container {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .volume-bar {
+          flex: 1;
+          height: 4px;
+          background: rgba(255, 255, 255, 0.08);
+          border-radius: 2px;
+        }
+
+        .volume-fill {
+          width: 60%;
+          height: 100%;
+          background: var(--tech-blue);
+          box-shadow: 0 0 6px var(--tech-blue);
+        }
+
+        /* 右侧全息数据展示区 */
+        .right-panel {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          background: rgba(15, 23, 42, 0.3);
+          border-radius: 16px;
+          border: 1px solid rgba(56, 189, 248, 0.1);
+          position: relative;
+        }
+
+        .no-lyrics-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 14px;
+          color: var(--text-dim);
+        }
+
+        .no-lyrics-state i {
+          font-size: 2.8rem;
+          color: var(--tech-blue);
+          opacity: 0.5;
+          filter: drop-shadow(0 0 10px var(--tech-blue));
+        }
+
+        .no-lyrics-state span {
+          font-family: monospace;
+          font-size: 0.85rem;
+          letter-spacing: 2px;
+          color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-window">
+    <div class="window-header">
+        <div class="window-dots">
+            <div class="dot dot-red"></div>
+            <div class="dot dot-yellow"></div>
+            <div class="dot dot-green"></div>
+        </div>
+        <div class="window-title">YL-AUDIO // NEURAL HUD</div>
+        <div class="tech-badge">AUDIO.LINK v2.0</div>
+    </div>
+
+    <div class="app-body">
+        <div class="left-panel">
+            <div class="artwork-section">
+                <div class="album-art">
+                    <i class="bi bi-cpu-fill"></i>
+                </div>
+                <div class="track-meta">
+                    <h1 class="song-title">Unknown Title</h1>
+                    <p class="artist-name">Unknown Artist</p>
+                </div>
+            </div>
+
+            <div class="controls-wrapper">
+                <div class="timeline-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <div class="time-labels">
+                        <span>00:00</span>
+                        <span>00:00</span>
+                    </div>
+                </div>
+
+                <div class="playback-buttons">
+                    <i class="bi bi-shuffle"></i>
+                    <i class="bi bi-skip-start-fill"></i>
+                    <div class="play-btn">
+                        <i class="bi bi-play-fill" style="margin-left: 2px;"></i>
+                    </div>
+                    <i class="bi bi-skip-end-fill"></i>
+                    <i class="bi bi-broadcast"></i>
+                </div>
+
+                <div class="volume-container">
+                    <i class="bi bi-soundwave" style="color: var(--tech-blue);"></i>
+                    <div class="volume-bar">
+                        <div class="volume-fill"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div class="no-lyrics-state">
+                <i class="bi bi-activity"></i>
+                <span>[ NO AUDIO DATA STREAM ]</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

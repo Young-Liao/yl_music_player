@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'app_theme_interface.dart';
+import '../app_theme_interface.dart';
 
 class LightTheme implements IAppTheme {
   @override
@@ -25,6 +25,9 @@ class LightTheme implements IAppTheme {
 
   @override
   final double imageCornerRadius = 20.0;
+
+  @override
+  late final Icon themeIcon = Icon(Icons.wb_sunny_rounded, color: primaryColor);
 
   @override
   ThemeData get themeData {

@@ -16,6 +16,9 @@ abstract interface class IAppTheme {
   abstract final double cardCornerRadius;
   abstract final double imageCornerRadius;
 
+  /// Icon
+  abstract final Icon themeIcon;
+
   /// Flutter ThemeData builder
   ThemeData get themeData;
 }

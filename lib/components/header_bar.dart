@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
+import '../controllers/theme_controller.dart';
 import '../themes/theme_provider.dart';
 
 class HeaderBar extends StatelessWidget {
@@ -10,7 +11,8 @@ class HeaderBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = CustomThemeProvider.of(context);
-    final isWindowsOrLinux = !kIsWeb && (Platform.isWindows || Platform.isLinux);
+    final isWindowsOrLinux =
+        !kIsWeb && (Platform.isWindows || Platform.isLinux);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -48,13 +50,8 @@ class HeaderBar extends StatelessWidget {
               ),
 
               IconButton(
-                onPressed: () {
-                  // TODO: SWITCHING THEMES
-                },
-                icon: Icon(
-                  Icons.wb_sunny_rounded,
-                  color: theme.primaryColor,
-                ),
+                onPressed: ThemeController.instance.toggleTheme,
+                icon: theme.themeIcon,
                 splashRadius: 20,
               ),
 
@@ -99,7 +96,11 @@ class _WindowButtons extends StatelessWidget {
           },
         ),
         IconButton(
-          icon: const Icon(Icons.close_rounded, size: 18, color: Colors.redAccent),
+          icon: const Icon(
+            Icons.close_rounded,
+            size: 18,
+            color: Colors.redAccent,
+          ),
           splashRadius: 18,
           onPressed: () async => await windowManager.close(),
         ),
