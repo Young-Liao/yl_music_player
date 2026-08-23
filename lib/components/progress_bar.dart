@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:yl_music_player/controllers/audio_player_controller.dart';
+import '../main.dart';
 import '../themes/theme_provider.dart';
 import '../utils/algorithms.dart';
 
@@ -26,6 +27,26 @@ class _ProgressBarState extends State<ProgressBar> {
   void initState() {
     super.initState();
     widget.controller.addListener(_handleControllerChange);
+    _bindSystemMediaCallbacks();
+  }
+
+  /// Binds system Control Center / Lockscreen actions to internal player logic
+  void _bindSystemMediaCallbacks() {
+    systemMediaHandler.onSeekCallback = (Duration value) {
+      widget.controller.seek(value);
+      widget.onSliderValueChanged?.call(value.inSeconds.toDouble());
+    };
+  }
+
+  @override
+  void dispose() {
+    // Unbind callbacks when leaving PlayerPage to prevent memory leaks or dangling calls
+    _unbindSystemMediaCallbacks();
+    super.dispose();
+  }
+
+  void _unbindSystemMediaCallbacks() {
+    systemMediaHandler.onSeekCallback = null;
   }
 
   @override

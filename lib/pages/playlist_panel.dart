@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:yl_music_player/controllers/audio_player_controller.dart';
-import 'package:yl_music_player/utils/file_picker.dart';
+import 'package:yl_music_player/utils/file/file_picker.dart';
 import '../components/animated_equalizer.dart';
 import '../themes/app_theme_interface.dart';
 import '../themes/theme_provider.dart';

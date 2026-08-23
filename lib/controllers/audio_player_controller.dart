@@ -5,6 +5,9 @@ import 'package:just_audio/just_audio.dart';
 import 'package:metadata_god/metadata_god.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:yl_music_player/controllers/system_media_sync_controller.dart';
+
+import '../utils/lyrics_handler.dart';
 
 enum LoopType { loop, repeat }
 
@@ -29,6 +32,9 @@ class AudioPlayerController extends ChangeNotifier {
   bool _forceStopped = false;
   File? _windowsTempFile;
 
+  LyricsHandler? lyricsHandler;
+  String? _lastSyncedLyricLine;
+
   AudioPlayerController({required this.playbackCompleted}) {
     _initStreams();
     loadEmpty();
@@ -49,6 +55,32 @@ class AudioPlayerController extends ChangeNotifier {
     _player.positionStream.listen((pos) {
       position = pos;
       notifyListeners();
+
+      // 1. Ensure lyrics handler is available
+      final handler = lyricsHandler;
+      if (handler == null || handler.isEmpty) return;
+
+      // 2. Resolve active line index and text
+      final activeIndices = handler.getCurrentIndices(pos);
+      final String? currentLyric = activeIndices.isNotEmpty
+          ? handler.lines[activeIndices.first].text
+          : null;
+
+      // 3. Guard: Sync ONLY when the lyric line actually changes
+      if (_lastSyncedLyricLine != currentLyric) {
+        _lastSyncedLyricLine = currentLyric;
+
+        SystemMediaSyncController.sync(
+          songId: currentPath,
+          title: title,
+          artist: artist,
+          artworkBytes: artworkBytes,
+          position: pos,
+          duration: duration,
+          isPlaying: isPlaying,
+          lyricsHandler: handler,
+        );
+      }
     });
 
     _player.durationStream.listen((dur) {
@@ -56,6 +88,8 @@ class AudioPlayerController extends ChangeNotifier {
       notifyListeners();
     });
   }
+
+  void resetLyrics() => _lastSyncedLyricLine = null;
 
   void loadEmpty() {
     currentPath = '';
@@ -141,6 +175,7 @@ class AudioPlayerController extends ChangeNotifier {
       debugPrint('Error loading audio source: $e');
     } finally {
       _isLoading = false;
+      resetLyrics();
       notifyListeners();
     }
   }

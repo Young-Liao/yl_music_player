@@ -4,6 +4,7 @@ import 'package:yl_music_player/components/playback_controls.dart';
 import 'package:yl_music_player/components/progress_bar.dart';
 import 'package:yl_music_player/components/track_metadata.dart';
 import 'package:yl_music_player/controllers/audio_player_controller.dart';
+import 'package:yl_music_player/main.dart';
 import 'package:yl_music_player/utils/lyrics_handler.dart';
 import 'package:yl_music_player/utils/playlist_manager.dart';
 import 'package:yl_music_player/utils/track_stepper_mixin.dart';
@@ -47,6 +48,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
   @override
   void initState() {
     super.initState();
+    audioController.lyricsHandler = lyricsHandler;
   }
 
   @override
@@ -145,11 +147,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
                       flex: 5,
                       child: Column(
                         children: [
-                          Expanded(
-                            child: Center(
-                              child: _buildTrackMetadata(),
-                            ),
-                          ),
+                          Expanded(child: Center(child: _buildTrackMetadata())),
                           _buildControlsSection(),
                         ],
                       ),

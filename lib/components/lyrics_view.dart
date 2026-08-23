@@ -33,7 +33,6 @@ class _LyricsViewState extends State<LyricsView> {
 
   List<int> _lastActiveIndices = [];
   bool _isUserScrolling = false;
-  bool _isProgrammaticScroll = false;
   int _hoveredIndex = -1;
   Timer? _inactivityTimer;
 
@@ -55,7 +54,8 @@ class _LyricsViewState extends State<LyricsView> {
   void didUpdateWidget(LyricsView oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Strict guard: Do NOT trigger auto-scroll if user is dragging or scrolling
-    if (oldWidget.currentPosition != widget.currentPosition && !_isUserScrolling) {
+    if (oldWidget.currentPosition != widget.currentPosition &&
+        !_isUserScrolling) {
       _checkAndScroll();
     }
   }
@@ -82,22 +82,18 @@ class _LyricsViewState extends State<LyricsView> {
     if (!_scrollController.hasClients || _isUserScrolling) return;
 
     final targetOffset = primaryIndex * _itemHeight;
-    _isProgrammaticScroll = true;
 
     if (withAnimate) {
       _scrollController
           .animateTo(
-        targetOffset,
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeOutCubic,
-      )
-          .whenComplete(() {
-        _isProgrammaticScroll = false;
-      });
+            targetOffset,
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.easeOutCubic,
+          )
+          .whenComplete(() {});
     } else {
       _scrollController.jumpTo(targetOffset);
       // Reset on the next microtask/frame for jumpTo
-      Future.microtask(() => _isProgrammaticScroll = false);
     }
   }
 
@@ -159,7 +155,10 @@ class _LyricsViewState extends State<LyricsView> {
 
     final double centerOffset = _scrollController.offset;
     final int calculatedIndex = (centerOffset / _itemHeight).round();
-    final int clampedIndex = calculatedIndex.clamp(0, widget.lyricsHandler.lines.length - 1);
+    final int clampedIndex = calculatedIndex.clamp(
+      0,
+      widget.lyricsHandler.lines.length - 1,
+    );
 
     if (clampedIndex != _hoveredIndex) {
       setState(() {
@@ -189,8 +188,11 @@ class _LyricsViewState extends State<LyricsView> {
     final activeIndices = handler.getCurrentIndices(widget.currentPosition);
 
     // Sync line jumps when crossing line bounds during active playback
-    if (activeIndices.isNotEmpty && activeIndices != _lastActiveIndices && !_isUserScrolling) {
+    if (activeIndices.isNotEmpty &&
+        activeIndices != _lastActiveIndices &&
+        !_isUserScrolling) {
       _lastActiveIndices = activeIndices;
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_isUserScrolling) {
           _scrollToActiveLine(activeIndices.first, withAnimate: false);
@@ -207,45 +209,54 @@ class _LyricsViewState extends State<LyricsView> {
           children: [
             NotificationListener<ScrollNotification>(
               onNotification: _handleScrollNotification,
-              child: ListView.builder(
-                controller: _scrollController,
-                physics: const BouncingScrollPhysics(),
-                itemExtent: _itemHeight,
-                padding: EdgeInsets.symmetric(
-                  vertical: verticalPadding - (_itemHeight / 2),
-                  horizontal: 24.0,
-                ),
-                itemCount: handler.lines.length,
-                itemBuilder: (context, index) {
-                  final line = handler.lines[index];
-                  final isActive = activeIndices.contains(index);
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(scrollbars: false),
+                child: ListView.builder(
+                  controller: _scrollController,
+                  physics: const BouncingScrollPhysics(),
+                  itemExtent: _itemHeight,
+                  padding: EdgeInsets.symmetric(
+                    vertical: verticalPadding - (_itemHeight / 2),
+                    horizontal: 24.0,
+                  ),
+                  itemCount: handler.lines.length,
+                  itemBuilder: (context, index) {
+                    final line = handler.lines[index];
+                    final isActive = activeIndices.contains(index);
 
-                  return Container(
-                    alignment: Alignment.center,
-                    child: AnimatedDefaultTextStyle(
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOut,
-                      style: TextStyle(
-                        fontSize: isActive ? 22.0 : 16.0,
-                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                        color: isActive
-                            ? theme.primaryColor
-                            : theme.textSecondary.withValues(alpha: 0.4),
-                        height: 1.3,
+                    return Container(
+                      alignment: Alignment.center,
+                      child: AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOut,
+                        style: TextStyle(
+                          fontSize: isActive ? 22.0 : 16.0,
+                          fontWeight: isActive
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: isActive
+                              ? theme.primaryColor
+                              : theme.textSecondary.withValues(alpha: 0.4),
+                          height: 1.3,
+                        ),
+                        child: Text(
+                          line.text.isEmpty ? '♪' : line.text,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      child: Text(
-                        line.text.isEmpty ? '♪' : line.text,
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ),
             // Floating target overlay visible when manual scrolling is active
-            if (_isUserScrolling && _hoveredIndex >= 0 && _hoveredIndex < handler.lines.length)
+            if (_isUserScrolling &&
+                _hoveredIndex >= 0 &&
+                _hoveredIndex < handler.lines.length)
               _buildTargetOverlay(theme, handler),
           ],
         );
