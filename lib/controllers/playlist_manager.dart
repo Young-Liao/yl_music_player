@@ -56,7 +56,7 @@ class PlaylistManager {
 
     if (_playlistPaths.isNotEmpty && onSongReady != null) {
       final currentPath = _playlistPaths[_currentIndex];
-      await onSongReady(currentPath);
+      onSongReady(currentPath);
     }
   }
 

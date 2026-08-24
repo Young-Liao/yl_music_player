@@ -10,11 +10,11 @@ mixin TrackStepperMixin {
   LyricsHandler get lyricsHandler;
 
   Future<void> loadSong(TrackMetadataItem? metadata) async {
-    lyricsHandler.loadFromFile(metadata?.filePath);
     if (metadata == null) {
       audioController.loadEmpty();
     } else {
       await audioController.loadTrack(metadata.filePath);
+      lyricsHandler.loadFromFile(metadata.filePath);
     }
   }
 

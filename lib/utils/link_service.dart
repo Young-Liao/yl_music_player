@@ -13,6 +13,12 @@ class LinkService {
   StreamController<String>.broadcast();
   StreamSubscription? _fileSubscription;
 
+  /// Holds file paths received before the UI attaches a listener and calls [releaseCache].
+  final List<String> _pendingCache = [];
+
+  /// Flag indicating whether the UI is ready and stream listening has been initialized.
+  bool _isListeningReady = false;
+
   Stream<String> get linkStream => _linkStreamController.stream;
 
   static const _supportedAudioExtensions = {
@@ -90,7 +96,26 @@ class LinkService {
 
     if (_isAudioFile(cleanPath)) {
       debugPrint('Received local track path: $cleanPath');
-      _linkStreamController.add(cleanPath);
+
+      if (_isListeningReady) {
+        // Emit directly if the listener is active and ready
+        _linkStreamController.add(cleanPath);
+      } else {
+        // Cache the incoming path if UI initialization hasn't called releaseCache() yet
+        _pendingCache.add(cleanPath);
+      }
+    }
+  }
+
+  /// Flushes all cached paths accumulated during cold start to active stream listeners.
+  /// Call this method in the UI layer right after setting up `linkStream.listen(...)`.
+  void releaseCache() {
+    _isListeningReady = true;
+    if (_pendingCache.isNotEmpty) {
+      for (final path in List<String>.from(_pendingCache)) {
+        _linkStreamController.add(path);
+      }
+      _pendingCache.clear();
     }
   }
 

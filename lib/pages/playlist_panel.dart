@@ -224,9 +224,9 @@ class PlaylistPanelState extends State<PlaylistPanel> {
             controller: _sheetController,
             initialChildSize: 0.65,
             minChildSize: 0.2,
-            maxChildSize: 1.0,
+            maxChildSize: 0.9,
             snap: true,
-            snapSizes: const [0.65, 1.0],
+            snapSizes: const [0.65, 0.9],
             builder: (context, scrollController) {
               // Scroll to current index when loading...
               if (!_hasInitialScrolled) {
@@ -309,7 +309,7 @@ class PlaylistPanelState extends State<PlaylistPanel> {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        final target = _sheetController.size > 0.8 ? 0.65 : 1.0;
+        final target = _sheetController.size > 0.8 ? 0.65 : 0.9;
         _sheetController.animateTo(
           target,
           duration: const Duration(milliseconds: 250),
@@ -400,7 +400,6 @@ class PlaylistPanelState extends State<PlaylistPanel> {
     return SliverPadding(
       padding: const EdgeInsets.fromLTRB(20.0, 0.0, 20.0, 20.0),
       sliver: SliverReorderableList(
-        // TODO: Fix Dragging
         itemCount: _displayTracks.length,
         onReorder: _handleReorder,
         proxyDecorator: (child, index, animation) {

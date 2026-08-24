@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:yl_music_player/components/lyrics_view.dart';
 import 'package:yl_music_player/utils/data_structures/track_metadata_item.dart';
+import 'package:yl_music_player/utils/link_service.dart';
 import '../components/playback_controls.dart';
 import 'package:yl_music_player/components/progress_bar.dart';
 import 'package:yl_music_player/components/track_metadata.dart';
@@ -36,7 +37,8 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
   static const double _kWideLayoutThreshold = 680.0;
 
   late final AudioPlayerController _audioController = AudioPlayerController(
-    playbackCompleted: playCompleted,
+    playbackCompleted: () =>
+      playCompleted(),
   );
 
   PlayerDisplayMode _displayMode = PlayerDisplayMode.metadata;
@@ -64,7 +66,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
           "Successfully loaded song at index ${playlistManager.currentIndex}: $filePath",
         );
       },
-    );
+    ).then((_) => LinkService.instance.releaseCache);
   }
 
   @override
