@@ -3,7 +3,6 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:yl_music_player/main.dart';
 import 'package:yl_music_player/navigation/app_router.dart';
 import 'package:yl_music_player/pages/file_manager_page.dart';
-import '../components/file_manager/music_files_window.dart';
 import '../components/song_list/song_list_view.dart';
 import '../controllers/audio/audio_player_controller.dart';
 import '../controllers/song_list/playlist_manager.dart';
@@ -15,14 +14,12 @@ class PlaylistPanel extends StatefulWidget {
   final PlaylistManager playlistManager;
   final AudioPlayerController audioController;
   final ValueChanged<String> onPlayTrack;
-  final bool autoPickFile;
 
   const PlaylistPanel({
     super.key,
     required this.playlistManager,
     required this.audioController,
     required this.onPlayTrack,
-    this.autoPickFile = false,
   });
 
   static Future<void> show(
@@ -30,7 +27,6 @@ class PlaylistPanel extends StatefulWidget {
         required PlaylistManager playlistManager,
         required AudioPlayerController audioController,
         required ValueChanged<String> onPlayTrack,
-        bool autoPickFile = false,
       }) {
     return showModalBottomSheet(
       context: context,
@@ -43,7 +39,6 @@ class PlaylistPanel extends StatefulWidget {
           playlistManager: playlistManager,
           audioController: audioController,
           onPlayTrack: onPlayTrack,
-          autoPickFile: autoPickFile,
         );
       },
     );
@@ -70,11 +65,6 @@ class PlaylistPanelState extends State<PlaylistPanel> {
     _initializePlaylistView();
 
     widget.audioController.addListener(_onControllerChanged);
-    if (widget.autoPickFile) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _handleSystemPickAndPlay();
-      });
-    }
   }
 
   @override
@@ -112,13 +102,6 @@ class PlaylistPanelState extends State<PlaylistPanel> {
     if (mounted) setState(() {});
 
     return paths;
-  }
-
-  Future<void> _handleSystemPickAndPlay() async {
-    final paths = await _handleSystemPick();
-    if (paths.isNotEmpty) {
-      widget.onPlayTrack(paths.first);
-    }
   }
 
   // Load from Custom File Manager

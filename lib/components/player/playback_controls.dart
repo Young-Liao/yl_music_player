@@ -57,7 +57,7 @@ class PlaybackControlsState extends State<PlaybackControls>
       String path,
     ) async {
       await widget.playlistManager.addFileNextToCurrent(path);
-      _showPlaylistPanel(autoPickFile: false);
+      _showPlaylistPanel();
       await nextSong();
       await audioController.setPlaying(true);
     });
@@ -101,7 +101,7 @@ class PlaybackControlsState extends State<PlaybackControls>
     systemMediaHandler.onSkipPreviousCallback = null;
   }
 
-  void _showPlaylistPanel({required bool autoPickFile}) {
+  void _showPlaylistPanel() {
     if (_isPanelOpen) {
       // Force the active panel instance to re-sync its track list
       playlistPanelKey?.currentState?.refresh();
@@ -124,7 +124,6 @@ class PlaybackControlsState extends State<PlaybackControls>
           playlistManager: playlistManager,
           audioController: audioController,
           onPlayTrack: onPlayTrack,
-          autoPickFile: autoPickFile,
         );
       },
     ).then((_) {
@@ -136,7 +135,7 @@ class PlaybackControlsState extends State<PlaybackControls>
   void _onTriggerPlayback() async {
     final song = await playlistManager.getCurrentMetadata();
     if (playlistManager.playlistPaths.isEmpty) {
-      _showPlaylistPanel(autoPickFile: true);
+      _showPlaylistPanel();
     } else {
       if (!audioController.loaded) {
         await loadSong(song);
@@ -204,7 +203,7 @@ class PlaybackControlsState extends State<PlaybackControls>
             ),
             // Playlist Queue
             IconButton(
-              onPressed: () => _showPlaylistPanel(autoPickFile: false),
+              onPressed: _showPlaylistPanel,
               icon: const Icon(BootstrapIcons.list_nested),
               color: theme.textPrimary,
               iconSize: 20.0,

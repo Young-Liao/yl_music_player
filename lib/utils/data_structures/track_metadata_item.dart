@@ -66,7 +66,6 @@ class TrackMetadataItem {
           metadata.title ?? path.split('/').last.replaceAll('.mp3', '');
       final artist = metadata.artist ?? 'Unknown Artist';
       final album = metadata.album ?? 'Unknown Album';
-      final duration = metadata.duration ?? Duration.zero;
       final rawArtwork = metadata.picture?.data;
 
       // Compress artwork byte array to 88x88 px thumbnail to save RAM and avoid render lag

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
-import 'package:yl_music_player/main.dart';
 import '../../controllers/audio/audio_player_controller.dart';
 import '../../controllers/song_list/file_list_manager.dart';
 import '../../themes/theme_provider.dart';
