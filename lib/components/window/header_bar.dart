@@ -2,8 +2,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
-import '../controllers/theme_controller.dart';
-import '../themes/theme_provider.dart';
+import 'package:yl_music_player/components/window/page_segmented_control.dart';
+import '../../controllers/themes/theme_controller.dart';
+import '../../themes/theme_provider.dart';
 
 class HeaderBar extends StatelessWidget {
   const HeaderBar({super.key});
@@ -20,7 +21,7 @@ class HeaderBar extends StatelessWidget {
         // 1. Top padding strip transformed into a drag handle
         DragToMoveArea(
           child: Container(
-            height: 20.0, // Fills the gap above the title
+            height: 20.0,
             color: Colors.transparent,
           ),
         ),
@@ -30,7 +31,9 @@ class HeaderBar extends StatelessWidget {
           height: 40.0,
           child: Row(
             children: [
+              // Left Title Section
               Expanded(
+                flex: 2,
                 child: DragToMoveArea(
                   child: Container(
                     width: double.infinity,
@@ -49,16 +52,32 @@ class HeaderBar extends StatelessWidget {
                 ),
               ),
 
-              IconButton(
-                onPressed: ThemeController.instance.toggleTheme,
-                icon: theme.themeIcon,
-                splashRadius: 20,
+              // Center Segmented Navigation Switcher
+              const Expanded(
+                flex: 3,
+                child: Center(
+                  child: PageSegmentedControl(),
+                ),
               ),
 
-              if (isWindowsOrLinux) ...[
-                const SizedBox(width: 4.0),
-                _WindowButtons(theme: theme),
-              ],
+              // Right Action Buttons
+              Expanded(
+                flex: 2,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      onPressed: ThemeController.instance.toggleTheme,
+                      icon: theme.themeIcon,
+                      splashRadius: 20,
+                    ),
+                    if (isWindowsOrLinux) ...[
+                      const SizedBox(width: 4.0),
+                      _WindowButtons(theme: theme),
+                    ],
+                  ],
+                ),
+              ),
             ],
           ),
         ),

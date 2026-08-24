@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
-import '../../controllers/audio_player_controller.dart';
+import '../../controllers/audio/audio_player_controller.dart';
 import '../../controllers/song_list/song_list_managers.dart';
 import '../../themes/app_theme_interface.dart';
 import '../../themes/theme_provider.dart';
 import '../../utils/data_structures/track_metadata_item.dart';
-import '../animated_equalizer.dart';
+import '../animation/animated_equalizer.dart';
 
 class SongListView extends StatefulWidget {
   final SongListManager songListManager;

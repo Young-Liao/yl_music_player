@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:yl_music_player/controllers/audio_player_controller.dart';
-import '../main.dart';
-import '../themes/theme_provider.dart';
-import '../utils/algorithms.dart';
+import 'package:yl_music_player/controllers/audio/audio_player_controller.dart';
+import '../../main.dart';
+import '../../themes/theme_provider.dart';
+import '../../utils/algorithms.dart';
 
 class ProgressBar extends StatefulWidget {
   final AudioPlayerController controller;

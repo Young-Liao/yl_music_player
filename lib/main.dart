@@ -1,6 +1,8 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:metadata_god/metadata_god.dart';
+import 'package:yl_music_player/navigation/app_router.dart';
+import 'package:yl_music_player/pages/file_manager_page.dart';
 import 'package:yl_music_player/pages/player_page.dart';
 import 'package:yl_music_player/system/system_media_handler.dart';
 import 'package:yl_music_player/themes/theme_provider.dart';
@@ -10,27 +12,23 @@ import 'package:yl_music_player/utils/storage/database/interface.dart';
 import 'package:yl_music_player/utils/storage/database/sqlite.dart';
 import 'package:yl_music_player/utils/storage/settings.dart';
 import 'configs/window.dart';
-import 'controllers/lyrics_handler.dart';
+import 'controllers/lyrics/lyrics_handler.dart';
 import 'controllers/song_list/song_list_managers.dart';
-import 'controllers/theme_controller.dart';
+import 'controllers/themes/theme_controller.dart';
 
 late SystemMediaHandler systemMediaHandler;
 late IDatabaseStorage dbStorage;
 
 void main(List<String> args) async {
-  /// Window
   WidgetsFlutterBinding.ensureInitialized();
   await WindowConfig.init();
 
-  /// Storage
   await SettingsStorage.instance.init();
   dbStorage = SQLiteStorage();
   await dbStorage.init();
 
-  /// Theme
   ThemeController.instance.init();
 
-  /// System
   systemMediaHandler = await AudioService.init(
     builder: () => SystemMediaHandler(),
     config: const AudioServiceConfig(
@@ -42,7 +40,6 @@ void main(List<String> args) async {
   );
 
   await MetadataGod.initialize();
-
   LinkService.instance.init(initialArgs: args);
 
   runApp(const MyApp());
@@ -65,9 +62,20 @@ class MyApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             title: 'YL Music Player',
             theme: activeTheme.themeData,
-            home: PlayerPage(
-              playlistManager: playlistManager,
-              lyricsHandler: lyricsHandler,
+            home: ListenableBuilder(
+              listenable: AppRouter.instance,
+              builder: (context, _) {
+                return IndexedStack(
+                  index: AppRouter.instance.currentIndex,
+                  children: [
+                    PlayerPage(
+                      playlistManager: playlistManager,
+                      lyricsHandler: lyricsHandler,
+                    ),
+                    const FileManagerPage(),
+                  ],
+                );
+              },
             ),
           ),
         );

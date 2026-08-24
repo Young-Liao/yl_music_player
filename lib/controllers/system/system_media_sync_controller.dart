@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 
-import '../main.dart';
-import '../utils/file/artwork_cache_manager.dart';
-import 'lyrics_handler.dart';
+import '../../main.dart';
+import '../../utils/file/artwork_cache_manager.dart';
+import '../lyrics/lyrics_handler.dart';
 
 /// Handles synchronization between in-app playback state/lyrics and native system OS controls.
 class SystemMediaSyncController {

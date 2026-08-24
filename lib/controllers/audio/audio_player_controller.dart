@@ -5,10 +5,10 @@ import 'package:just_audio/just_audio.dart';
 import 'package:metadata_god/metadata_god.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:yl_music_player/controllers/system_media_sync_controller.dart';
+import 'package:yl_music_player/controllers/system/system_media_sync_controller.dart';
 import 'package:yl_music_player/utils/storage/settings.dart';
 
-import 'lyrics_handler.dart';
+import '../lyrics/lyrics_handler.dart';
 
 enum LoopType { loop, repeat }
 

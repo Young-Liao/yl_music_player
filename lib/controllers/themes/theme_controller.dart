@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:yl_music_player/utils/storage/settings.dart';
 
-import '../themes/themes.dart';
+import '../../themes/themes.dart';
 
 class ThemeController extends ValueNotifier<IAppTheme> {
   ThemeController._() : super(availableThemes[0]);

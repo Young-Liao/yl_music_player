@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../controllers/audio_player_controller.dart';
-import '../themes/theme_provider.dart';
+import '../../controllers/audio/audio_player_controller.dart';
+import '../../themes/theme_provider.dart';
 
 class TrackMetadata extends StatefulWidget {
   const TrackMetadata({

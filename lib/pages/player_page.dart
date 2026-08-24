@@ -4,19 +4,19 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:yl_music_player/components/lyrics_view.dart';
+import 'package:yl_music_player/components/lyrics/lyrics_view.dart';
 import 'package:yl_music_player/utils/data_structures/track_metadata_item.dart';
 import 'package:yl_music_player/utils/link_service.dart';
-import '../components/playback_controls.dart';
-import 'package:yl_music_player/components/progress_bar.dart';
-import 'package:yl_music_player/components/track_metadata.dart';
-import 'package:yl_music_player/controllers/audio_player_controller.dart';
-import 'package:yl_music_player/controllers/lyrics_handler.dart';
+import '../components/player/playback_controls.dart';
+import 'package:yl_music_player/components/player/progress_bar.dart';
+import 'package:yl_music_player/components/song_list/track_metadata.dart';
+import 'package:yl_music_player/controllers/audio/audio_player_controller.dart';
+import 'package:yl_music_player/controllers/lyrics/lyrics_handler.dart';
 import 'package:yl_music_player/controllers/song_list/song_list_managers.dart';
 import 'package:yl_music_player/utils/track_stepper_mixin.dart';
 import '../themes/app_theme_interface.dart';
 import '../themes/theme_provider.dart';
-import '../components/header_bar.dart';
+import '../components/window/header_bar.dart';
 
 enum PlayerDisplayMode { metadata, lyrics }
 

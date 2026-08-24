@@ -2,15 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
-import 'package:yl_music_player/controllers/audio_player_controller.dart';
-import 'package:yl_music_player/controllers/lyrics_handler.dart';
+import 'package:yl_music_player/controllers/audio/audio_player_controller.dart';
+import 'package:yl_music_player/controllers/lyrics/lyrics_handler.dart';
 import 'package:yl_music_player/controllers/song_list/song_list_managers.dart';
 import 'package:yl_music_player/utils/track_stepper_mixin.dart';
-import '../main.dart';
-import '../pages/playlist_panel.dart';
-import '../themes/theme_provider.dart';
-import '../utils/data_structures/track_metadata_item.dart';
-import '../utils/link_service.dart';
+import '../../main.dart';
+import '../../pages/playlist_panel.dart';
+import '../../themes/theme_provider.dart';
+import '../../utils/data_structures/track_metadata_item.dart';
+import '../../utils/link_service.dart';
 
 class PlaybackControls extends StatefulWidget {
   final AudioPlayerController audioController;
