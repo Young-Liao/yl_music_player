@@ -22,7 +22,7 @@ class SQLiteStorage implements IDatabaseStorage {
       databaseFactory = databaseFactoryFfi;
     }
 
-    final docDir = await getApplicationDocumentsDirectory();
+    final docDir = await getApplicationSupportDirectory();
     final dbPath = p.join(docDir.path, 'yl_music_player', 'app_data.db');
 
     // Ensure parent directory exists
