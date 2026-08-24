@@ -12,13 +12,21 @@ class SettingsStorage {
   Map<String, dynamic> _cache = {};
   Timer? _debounceTimer;
 
-  // Time guard delay configuration
   static const Duration _saveDelay = Duration(milliseconds: 500);
 
   Future<void> init() async {
-    final docDir = await getApplicationDocumentsDirectory();
-    final path = p.join(docDir.path, 'yl_music_player', 'settings.json');
-    _settingsFile = File(path);
+    // 1. Use ApplicationSupportDirectory to bypass Windows OneDrive Documents redirection
+    final appSupportDir = await getApplicationSupportDirectory();
+    final folderPath = p.join(appSupportDir.path, 'yl_music_player');
+
+    // 2. Ensure target directory exists
+    final dir = Directory(folderPath);
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+
+    final filePath = p.join(folderPath, 'settings.json');
+    _settingsFile = File(filePath);
 
     if (await _settingsFile!.exists()) {
       try {
@@ -28,13 +36,10 @@ class SettingsStorage {
         _cache = {};
       }
     } else {
-      await _settingsFile!.parent.create(recursive: true);
       await _saveNow();
     }
   }
 
-  /// Schedules a write to disk after [_saveDelay].
-  /// Rapid calls restart the timer, writing only once after activity stops.
   void _scheduleSave() {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(_saveDelay, () async {
@@ -42,13 +47,15 @@ class SettingsStorage {
     });
   }
 
-  /// Performs immediate, un-debounced write (useful on app exit/pause)
   Future<void> _saveNow() async {
     _debounceTimer?.cancel();
     _debounceTimer = null;
 
     if (_settingsFile == null) return;
     try {
+      if (!await _settingsFile!.parent.exists()) {
+        await _settingsFile!.parent.create(recursive: true);
+      }
       await _settingsFile!.writeAsString(jsonEncode(_cache));
     } catch (e) {
       // Handle write error
@@ -73,7 +80,6 @@ class SettingsStorage {
   int get lastTrackIndex => get<int>('lastTrackIndex') ?? 0;
   Future<void> setLastTrackIndex(int index) => set('lastTrackIndex', index);
 
-  /// Flushes pending changes directly to disk synchronously/immediately
   Future<void> flush() async {
     if (_debounceTimer?.isActive ?? false) {
       await _saveNow();

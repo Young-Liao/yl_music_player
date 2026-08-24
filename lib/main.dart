@@ -19,7 +19,7 @@ import 'controllers/theme_controller.dart';
 late SystemMediaHandler systemMediaHandler;
 late IDatabaseStorage dbStorage;
 
-void main() async {
+void main(List<String> args) async {
   /// Window
   WidgetsFlutterBinding.ensureInitialized();
   await WindowConfig.init();
@@ -44,9 +44,9 @@ void main() async {
   );
 
   await MetadataGod.initialize();
-  
-  LinkService.instance.init();
-  
+
+  LinkService.instance.init(initialArgs: args);
+
   runApp(const MyApp());
 }
 
