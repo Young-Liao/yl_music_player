@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,15 +15,18 @@ import '../controllers/audio/audio_player_controller.dart';
 import '../controllers/song_list/file_list_manager.dart';
 import '../themes/theme_provider.dart';
 
+final fileManagerPageKey =
+GlobalKey<_FileManagerPageState>();
+
 class FileManagerPage extends StatefulWidget {
   final AudioPlayerController audioController;
   final FileListManager fileListManager;
 
-  const FileManagerPage({
-    super.key,
+  FileManagerPage({
+    Key? key,
     required this.audioController,
     required this.fileListManager,
-  });
+  }) : super(key: key ?? fileManagerPageKey);
 
   @override
   State<FileManagerPage> createState() => _FileManagerPageState();
@@ -32,11 +36,78 @@ class _FileManagerPageState extends State<FileManagerPage> {
   int _selectedLibraryIndex = 0;
   bool _isDrawerOpen = false;
 
+  Completer<List<String>>? _selectionCompleter;
+  bool _isSelectionMode = false;
+  bool _isSubjectiveSelection = false;
+
   void _handleSelectIndex(int index) {
     setState(() {
       _selectedLibraryIndex = index;
       _isDrawerOpen = false;
     });
+  }
+
+  /// Triggers selection mode and awaits user confirmation.
+  /// Returns a list of file paths selected by the user.
+  Future<List<String>> selectTracksInteractively() async {
+    if (_selectionCompleter != null && !_selectionCompleter!.isCompleted) {
+      _selectionCompleter!.complete([]);
+    }
+
+    _selectionCompleter = Completer<List<String>>();
+
+    setState(() {
+      _selectedLibraryIndex = 0; // Switch to Music Files view
+      _isSelectionMode = true;
+      _isSubjectiveSelection = true;
+    });
+
+    musicFilesWindowKey.currentState?.clearSelection();
+
+    return _selectionCompleter!.future;
+  }
+
+  void _confirmSubjectiveSelection() {
+    final selectedIndices =
+        musicFilesWindowKey.currentState?.selectedIndices ?? {};
+
+    final List<String> selectedPaths = selectedIndices.map((index) {
+      return widget.fileListManager.songPaths[index];
+    }).toList();
+
+    setState(() {
+      _isSelectionMode = false;
+      _isSubjectiveSelection = false;
+    });
+
+    musicFilesWindowKey.currentState?.clearSelection();
+
+    if (_selectionCompleter != null && !_selectionCompleter!.isCompleted) {
+      _selectionCompleter!.complete(selectedPaths);
+    }
+  }
+
+  void _cancelSelectionMode() {
+    setState(() {
+      _isSelectionMode = false;
+    });
+
+    musicFilesWindowKey.currentState?.clearSelection();
+
+    if (_isSubjectiveSelection) {
+      _isSubjectiveSelection = false;
+      if (_selectionCompleter != null && !_selectionCompleter!.isCompleted) {
+        _selectionCompleter!.complete([]);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_selectionCompleter != null && !_selectionCompleter!.isCompleted) {
+      _selectionCompleter!.complete([]);
+    }
+    super.dispose();
   }
 
   @override
@@ -77,7 +148,6 @@ class _FileManagerPageState extends State<FileManagerPage> {
 
                     return Column(
                       children: [
-                        // Top Global App Header
                         const Padding(
                           padding: EdgeInsets.symmetric(
                             horizontal: 24.0,
@@ -90,12 +160,9 @@ class _FileManagerPageState extends State<FileManagerPage> {
                           thickness: 1,
                           color: theme.outerBackgroundColor,
                         ),
-
-                        // Workspace Area
                         Expanded(
                           child: Stack(
                             children: [
-                              // Main Layout Row
                               Row(
                                 children: [
                                   if (!isNarrow) ...[
@@ -116,12 +183,10 @@ class _FileManagerPageState extends State<FileManagerPage> {
                                   Expanded(child: _buildMainContent()),
                                 ],
                               ),
-
-                              // Floating Menu Button (Top-Left of Content Area when narrow)
                               if (isNarrow)
                                 Positioned(
-                                  left: 12.0,
-                                  top: 14.0,
+                                  left: 20.0,
+                                  top: -8.0,
                                   child: Material(
                                     color: Colors.transparent,
                                     child: IconButton(
@@ -140,8 +205,6 @@ class _FileManagerPageState extends State<FileManagerPage> {
                                     ),
                                   ),
                                 ),
-
-                              // Floating Backdrop (Close on tap outside)
                               if (isNarrow && _isDrawerOpen)
                                 GestureDetector(
                                   onTap: () {
@@ -153,8 +216,6 @@ class _FileManagerPageState extends State<FileManagerPage> {
                                     color: Colors.black.withValues(alpha: 0.2),
                                   ),
                                 ),
-
-                              // Sliding Sidebar Overlay
                               if (isNarrow)
                                 AnimatedPositioned(
                                   duration: const Duration(milliseconds: 220),
@@ -190,13 +251,26 @@ class _FileManagerPageState extends State<FileManagerPage> {
 
   Widget _buildMusicFilesWindow() {
     return MusicFilesWindow(
+      key: musicFilesWindowKey,
       audioController: widget.audioController,
       fileListManager: widget.fileListManager,
+      isSelectionMode: _isSelectionMode,
+      isSubjectiveSelection: _isSubjectiveSelection,
+      onToggleSelectionMode: () {
+        if (_isSelectionMode) {
+          _cancelSelectionMode();
+        } else {
+          setState(() {
+            _isSelectionMode = true;
+            _isSubjectiveSelection = false;
+          });
+        }
+      },
+      onConfirmSubjectiveSelection: _confirmSubjectiveSelection,
       onPlayTrack: (path) async {
-        // playbackControlKey.currentState?.onPlayTrack(path);
         playbackControlKey.currentState?.onPlayTrackAndCheckExistence(path);
         await Future.delayed(const Duration(milliseconds: 50));
-        AppRouter.instance.goToPage(0); // Go to Player
+        AppRouter.instance.goToPage(0);
       },
     );
   }

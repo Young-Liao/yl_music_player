@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:yl_music_player/utils/algorithms.dart';
 import '../../themes/app_theme_interface.dart';
 import '../../themes/theme_provider.dart';
 import '../../utils/data_structures/track_metadata_item.dart';
-import '../song_list/song_list_view.dart';
 import '../../controllers/song_list/file_list_manager.dart';
+import '../song_list/song_list_view.dart';
 
 class FileListView extends SongListView {
   final FileListManager fileListManager;
@@ -17,6 +16,9 @@ class FileListView extends SongListView {
     required super.scrollController,
     super.onMoveToNext,
     super.onDelete,
+    super.isSelectionMode = false,
+    super.selectedIndices = const {},
+    super.onToggleSelect,
   }) : super(songListManager: fileListManager);
 
   @override
@@ -36,6 +38,7 @@ class _FileListViewState extends SongListViewState {
   Widget build(BuildContext context) {
     final theme = CustomThemeProvider.of(context);
     final fileManager = (widget.songListManager as FileListManager);
+    final fileListView = (widget as FileListView);
 
     return Container(
       decoration: BoxDecoration(
@@ -53,10 +56,9 @@ class _FileListViewState extends SongListViewState {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Responsive Header Bar using LayoutBuilder to prevent overflow
+          // Responsive Header Bar
           LayoutBuilder(
             builder: (context, constraints) {
-              // If width is tight (< 380px), stack title and sort vertically
               final bool isCompact = constraints.maxWidth < 380;
 
               final titleWidget = Text(
@@ -100,8 +102,8 @@ class _FileListViewState extends SongListViewState {
                       ),
                     ),
                     menuChildren: FileListSortOption.values.map((
-                      FileListSortOption option,
-                    ) {
+                        FileListSortOption option,
+                        ) {
                       final isSelected = option == fileManager.currentSort;
                       return MenuItemButton(
                         style: ButtonStyle(
@@ -109,8 +111,8 @@ class _FileListViewState extends SongListViewState {
                             Colors.transparent,
                           ),
                           backgroundColor: WidgetStateProperty.resolveWith((
-                            states,
-                          ) {
+                              states,
+                              ) {
                             if (states.contains(WidgetState.hovered) || isSelected) {
                               return theme.outerBackgroundColor.withValues(
                                 alpha: 0.5,
@@ -152,55 +154,54 @@ class _FileListViewState extends SongListViewState {
                         ),
                       );
                     }).toList(),
-                    builder:
-                        (
-                          BuildContext context,
-                          MenuController controller,
-                          Widget? child,
+                    builder: (
+                        BuildContext context,
+                        MenuController controller,
+                        Widget? child,
                         ) {
-                          return InkWell(
-                            onTap: () {
-                              if (controller.isOpen) {
-                                controller.close();
-                              } else {
-                                controller.open();
-                              }
-                            },
-                            borderRadius: BorderRadius.circular(8.0),
-                            child: Container(
-                              height: 36,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12.0,
-                              ),
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: theme.outerBackgroundColor,
-                                ),
-                                borderRadius: BorderRadius.circular(8.0),
-                                color: theme.cardBackgroundColor,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    fileManager.currentSort.label,
-                                    style: TextStyle(
-                                      fontSize: 13.0,
-                                      fontWeight: FontWeight.w600,
-                                      color: theme.textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Icon(
-                                    Icons.keyboard_arrow_down_rounded,
-                                    size: 18,
-                                    color: theme.textSecondary,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
+                      return InkWell(
+                        onTap: () {
+                          if (controller.isOpen) {
+                            controller.close();
+                          } else {
+                            controller.open();
+                          }
                         },
+                        borderRadius: BorderRadius.circular(8.0),
+                        child: Container(
+                          height: 36,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12.0,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: theme.outerBackgroundColor,
+                            ),
+                            borderRadius: BorderRadius.circular(8.0),
+                            color: theme.cardBackgroundColor,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                fileManager.currentSort.label,
+                                style: TextStyle(
+                                  fontSize: 13.0,
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 18,
+                                color: theme.textSecondary,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               );
@@ -224,7 +225,7 @@ class _FileListViewState extends SongListViewState {
           ),
           const SizedBox(height: 20.0),
 
-          // Scrollable Table Wrapper with Scrollbar
+          // Table File List Workspace
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -244,7 +245,7 @@ class _FileListViewState extends SongListViewState {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Column Titles Header
+                          // Header Titles Row
                           Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12.0,
@@ -252,6 +253,8 @@ class _FileListViewState extends SongListViewState {
                             ),
                             child: Row(
                               children: [
+                                if (fileListView.isSelectionMode)
+                                  const SizedBox(width: 40),
                                 Expanded(
                                   flex: 5,
                                   child: Text(
@@ -277,7 +280,7 @@ class _FileListViewState extends SongListViewState {
                           ),
                           const SizedBox(height: 8.0),
 
-                          // File List Items Workspace
+                          // File List Workspace
                           Expanded(
                             child: ListView.builder(
                               controller: widget.scrollController,
@@ -287,7 +290,7 @@ class _FileListViewState extends SongListViewState {
                                     .getCachedMetadataAtIndex(index);
                                 final isActive =
                                     track.filePath ==
-                                    widget.audioController.currentPath;
+                                        widget.audioController.currentPath;
 
                                 return _buildFileRow(
                                   context,
@@ -295,6 +298,7 @@ class _FileListViewState extends SongListViewState {
                                   track,
                                   index,
                                   isActive,
+                                  fileListView,
                                 );
                               },
                             ),
@@ -322,22 +326,41 @@ class _FileListViewState extends SongListViewState {
   }
 
   Widget _buildFileRow(
-    BuildContext context,
-    IAppTheme theme,
-    TrackMetadataItem track,
-    int index,
-    bool isActive,
-  ) {
+      BuildContext context,
+      IAppTheme theme,
+      TrackMetadataItem track,
+      int index,
+      bool isActive,
+      FileListView fileListView,
+      ) {
+    final bool isSelected = fileListView.selectedIndices.contains(index);
+
     return Material(
-      color: Colors.transparent,
+      color: isSelected
+          ? theme.primaryColor.withValues(alpha: 0.08)
+          : Colors.transparent,
       borderRadius: BorderRadius.circular(8.0),
       child: InkWell(
-        onTap: () => widget.onPlayTrack(track.filePath),
+        onTap: () {
+          if (fileListView.isSelectionMode) {
+            fileListView.onToggleSelect?.call(index);
+          } else {
+            widget.onPlayTrack(track.filePath);
+          }
+        },
         borderRadius: BorderRadius.circular(8.0),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
           child: Row(
             children: [
+              if (fileListView.isSelectionMode) ...[
+                Checkbox(
+                  value: isSelected,
+                  activeColor: theme.primaryColor,
+                  onChanged: (_) => fileListView.onToggleSelect?.call(index),
+                ),
+                const SizedBox(width: 8.0),
+              ],
               Expanded(
                 flex: 5,
                 child: Row(
@@ -393,15 +416,66 @@ class _FileListViewState extends SongListViewState {
               ),
               SizedBox(
                 width: 32,
-                child: IconButton(
+                child: PopupMenuButton<String>(
                   icon: Icon(
                     Icons.more_vert_rounded,
                     size: 18.0,
                     color: theme.textMuted,
                   ),
-                  onPressed: () {},
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'play_now':
+                      // TODO: Implement Play Now action
+                        break;
+                      case 'play_next':
+                      // TODO: Implement Play Next action
+                        break;
+                      case 'delete':
+                      // TODO: Implement Delete action
+                        break;
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'play_now',
+                      child: Row(
+                        children: [
+                          Icon(Icons.play_arrow_rounded,
+                              size: 18, color: theme.primaryColor),
+                          const SizedBox(width: 8),
+                          const Text('Play Now'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'play_next',
+                      child: Row(
+                        children: [
+                          Icon(Icons.playlist_add_rounded,
+                              size: 18, color: theme.primaryColor),
+                          const SizedBox(width: 8),
+                          const Text('Play Next'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline_rounded,
+                              size: 18, color: Colors.redAccent),
+                          SizedBox(width: 8),
+                          Text(
+                            'Delete',
+                            style: TextStyle(color: Colors.redAccent),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

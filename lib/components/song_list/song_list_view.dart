@@ -16,6 +16,10 @@ class SongListView extends StatefulWidget {
   final Function(int index)? onMoveToNext;
   final Function(int index)? onDelete;
 
+  final bool isSelectionMode;
+  final Set<int> selectedIndices;
+  final ValueChanged<int>? onToggleSelect;
+
   const SongListView({
     super.key,
     required this.songListManager,
@@ -24,6 +28,9 @@ class SongListView extends StatefulWidget {
     required this.scrollController,
     this.onMoveToNext,
     this.onDelete,
+    this.isSelectionMode = false,
+    this.selectedIndices = const {},
+    this.onToggleSelect,
   });
 
   @override
@@ -151,9 +158,13 @@ class SongListViewState extends State<SongListView> {
       int index,
       bool isActive,
       ) {
+    final isSelected = widget.selectedIndices.contains(index);
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(theme.cardCornerRadius - 4),
+      // Disable slidable actions when in batch selection mode
       child: Slidable(
+        enabled: !widget.isSelectionMode,
         endActionPane: ActionPane(
           motion: const DrawerMotion(),
           extentRatio: 0.44,
@@ -168,11 +179,7 @@ class SongListViewState extends State<SongListView> {
                   children: [
                     Icon(Icons.playlist_add_rounded, size: 22),
                     SizedBox(height: 2),
-                    Text(
-                      'Next',
-                      style:
-                      TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-                    ),
+                    Text('Next', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
@@ -186,11 +193,7 @@ class SongListViewState extends State<SongListView> {
                   children: [
                     Icon(Icons.delete_outline_rounded, size: 22),
                     SizedBox(height: 2),
-                    Text(
-                      'Remove',
-                      style:
-                      TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-                    ),
+                    Text('Remove', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
@@ -199,21 +202,38 @@ class SongListViewState extends State<SongListView> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () => widget.onPlayTrack(track.filePath),
+            onTap: () {
+              if (widget.isSelectionMode) {
+                widget.onToggleSelect?.call(index);
+              } else {
+                widget.onPlayTrack(track.filePath);
+              }
+            },
             child: Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: isActive
+                color: isSelected
+                    ? theme.primaryColor.withValues(alpha: 0.15)
+                    : (isActive
                     ? theme.primaryColor.withValues(alpha: 0.1)
-                    : theme.primaryColor.withValues(alpha: 0.03),
+                    : theme.primaryColor.withValues(alpha: 0.03)),
               ),
               child: Row(
                 children: [
+                  // Show Checkbox if in selection mode, else show artwork
+                  if (widget.isSelectionMode) ...[
+                    Checkbox(
+                      value: isSelected,
+                      activeColor: theme.primaryColor,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      onChanged: (_) => widget.onToggleSelect?.call(index),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   buildTrackArtwork(theme, track),
                   const SizedBox(width: 12),
                   Expanded(child: buildTrackInfo(theme, track, isActive)),
-                  if (isActive) ...[
+                  if (isActive && !widget.isSelectionMode) ...[
                     const SizedBox(width: 12),
                     AnimatedEqualizer(
                       color: theme.primaryColor,
@@ -222,14 +242,15 @@ class SongListViewState extends State<SongListView> {
                     ),
                   ],
                   const SizedBox(width: 8),
-                  ReorderableDragStartListener(
-                    index: index,
-                    child: Icon(
-                      Icons.drag_handle_rounded,
-                      color: theme.textSecondary.withValues(alpha: 0.4),
-                      size: 20,
+                  if (!widget.isSelectionMode)
+                    ReorderableDragStartListener(
+                      index: index,
+                      child: Icon(
+                        Icons.drag_handle_rounded,
+                        color: theme.textSecondary.withValues(alpha: 0.4),
+                        size: 20,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

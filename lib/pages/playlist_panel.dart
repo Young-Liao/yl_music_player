@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:yl_music_player/main.dart';
+import 'package:yl_music_player/navigation/app_router.dart';
+import 'package:yl_music_player/pages/file_manager_page.dart';
+import '../components/file_manager/music_files_window.dart';
 import '../components/song_list/song_list_view.dart';
 import '../controllers/audio/audio_player_controller.dart';
 import '../controllers/song_list/playlist_manager.dart';
@@ -57,6 +61,9 @@ class PlaylistPanelState extends State<PlaylistPanel> {
   bool _isLoading = true;
   bool _hasInitialScrolled = false;
 
+  bool _isSelectionMode = false;
+  final Set<int> _selectedIndices = {};
+
   @override
   void initState() {
     super.initState();
@@ -65,7 +72,7 @@ class PlaylistPanelState extends State<PlaylistPanel> {
     widget.audioController.addListener(_onControllerChanged);
     if (widget.autoPickFile) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _handleAddAndPlay();
+        _handleSystemPickAndPlay();
       });
     }
   }
@@ -92,7 +99,8 @@ class PlaylistPanelState extends State<PlaylistPanel> {
     _songListKey.currentState?.refresh();
   }
 
-  Future<List<String>> _handleAdd() async {
+  // Load from System Picker
+  Future<List<String>> _handleSystemPick() async {
     List<String> paths = await pickMultipleMusicFiles();
     if (paths.isEmpty) return paths;
 
@@ -106,11 +114,47 @@ class PlaylistPanelState extends State<PlaylistPanel> {
     return paths;
   }
 
-  Future<void> _handleAddAndPlay() async {
-    final paths = await _handleAdd();
+  Future<void> _handleSystemPickAndPlay() async {
+    final paths = await _handleSystemPick();
     if (paths.isNotEmpty) {
       widget.onPlayTrack(paths.first);
     }
+  }
+
+  // Load from Custom File Manager
+  Future<void> _handleFileManagerPick() async {
+    final parentContext = Navigator.of(context, rootNavigator: true).context;
+
+    hide();
+
+    // Placeholder mock response for demonstration:
+    final List<String>? selectedPaths = await _showFileManagerModal(context);
+
+    if (selectedPaths == null || selectedPaths.isEmpty) return;
+
+    for (final path in selectedPaths) {
+      await widget.playlistManager.addFileNextToCurrent(path);
+    }
+
+    _songListKey.currentState?.refresh();
+    if (mounted) setState(() {});
+
+    if (parentContext.mounted) {
+      PlaylistPanel.show(
+        parentContext,
+        playlistManager: widget.playlistManager,
+        audioController: widget.audioController,
+        onPlayTrack: widget.onPlayTrack,
+      );
+    }
+  }
+
+  // Helper method to simulate launching your file manager if it's a route/dialog
+  Future<List<String>?> _showFileManagerModal(BuildContext context) async {
+    AppRouter.instance.goToPage(1);
+    final ans = await fileManagerPageKey.currentState?.selectTracksInteractively();
+    AppRouter.instance.goToPage(0);
+    return ans;
   }
 
   Future<void> _handleMoveToNext(int index) async {
@@ -129,12 +173,56 @@ class PlaylistPanelState extends State<PlaylistPanel> {
     final isCurrent = await widget.playlistManager.deleteItem(index);
     if (isCurrent) {
       widget.audioController.stop();
+      lyricsHandler.loadFromFile(""); // TO EMPTY THE LYRICS
     }
     _songListKey.currentState?.refresh();
   }
 
   Future<void> _handleShuffle() async {
     await widget.playlistManager.shufflePlaylist();
+    _songListKey.currentState?.refresh();
+  }
+
+  void _toggleSelectionMode() {
+    setState(() {
+      _isSelectionMode = !_isSelectionMode;
+      _selectedIndices.clear();
+    });
+  }
+
+  void _toggleSelectIndex(int index) {
+    setState(() {
+      if (_selectedIndices.contains(index)) {
+        _selectedIndices.remove(index);
+      } else {
+        _selectedIndices.add(index);
+      }
+    });
+  }
+
+  Future<void> _handleBatchDelete() async {
+    if (_selectedIndices.isEmpty) return;
+
+    final sortedIndices = _selectedIndices.toList()..sort((a, b) => b.compareTo(a));  // To prevent influence!!!
+
+    bool stoppedCurrent = false;
+    for (final index in sortedIndices) {
+      final isCurrent = await widget.playlistManager.deleteItem(index);
+      if (isCurrent) {
+        stoppedCurrent = true;
+      }
+    }
+
+    if (stoppedCurrent) {
+      widget.audioController.stop();
+      lyricsHandler.loadFromFile(""); // TO EMPTY THE LYRICS
+    }
+
+    setState(() {
+      _isSelectionMode = false;
+      _selectedIndices.clear();
+    });
+
     _songListKey.currentState?.refresh();
   }
 
@@ -204,8 +292,13 @@ class PlaylistPanelState extends State<PlaylistPanel> {
                           scrollController: scrollController,
                           onMoveToNext: _handleMoveToNext,
                           onDelete: _handleDelete,
+                          isSelectionMode: _isSelectionMode,
+                          selectedIndices: _selectedIndices,
+                          onToggleSelect: _toggleSelectIndex,
                         ),
                       ),
+                      if (_isSelectionMode)
+                        _buildBatchActionFooter(theme),
                     ],
                   ),
                 ),
@@ -271,7 +364,9 @@ class PlaylistPanelState extends State<PlaylistPanel> {
               ),
               const SizedBox(width: 8),
               Text(
-                'Next Up (${widget.playlistManager.length})',
+                _isSelectionMode
+                    ? 'Selected (${_selectedIndices.length})'
+                    : 'Next Up (${widget.playlistManager.length})',
                 style: TextStyle(
                   fontSize: 20.0,
                   fontWeight: FontWeight.w700,
@@ -283,37 +378,128 @@ class PlaylistPanelState extends State<PlaylistPanel> {
           Row(
             children: [
               IconButton(
-                onPressed: _handleAdd,
-                icon: Icon(Icons.add_rounded, color: theme.primaryColor),
-                tooltip: 'Add Track',
-              ),
-              const SizedBox(width: 4),
-              OutlinedButton.icon(
-                onPressed: _handleShuffle,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: theme.textPrimary,
-                  side: BorderSide(
-                    color: theme.primaryColor.withValues(alpha: 0.2),
-                  ),
-                  shape: const StadiumBorder(),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                ),
+                onPressed: _toggleSelectionMode,
                 icon: Icon(
-                  Icons.shuffle_rounded,
-                  size: 16,
+                  _isSelectionMode ? Icons.close_rounded : Icons.checklist_rounded,
                   color: theme.primaryColor,
                 ),
-                label: const Text(
-                  'Shuffle',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                ),
+                tooltip: _isSelectionMode ? 'Cancel Selection' : 'Select Tracks',
               ),
+              const SizedBox(width: 4),
+              if (!_isSelectionMode) ...[
+                // Replaced single IconButton with PopupMenuButton for Add options
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.add_rounded, color: theme.primaryColor),
+                  tooltip: 'Add Track',
+                  onSelected: (value) {
+                    if (value == 'system') {
+                      _handleSystemPick();
+                    } else if (value == 'file_manager') {
+                      _handleFileManagerPick();
+                    }
+                  },
+                  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                    PopupMenuItem<String>(
+                      value: 'system',
+                      child: Row(
+                        children: [
+                          Icon(Icons.phone_android_rounded, size: 20, color: theme.primaryColor),
+                          const SizedBox(width: 12),
+                          const Text('Load from System'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem<String>(
+                      value: 'file_manager',
+                      child: Row(
+                        children: [
+                          Icon(Icons.folder_open_rounded, size: 20, color: theme.primaryColor),
+                          const SizedBox(width: 12),
+                          const Text('Load from File Manager'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 4),
+                OutlinedButton.icon(
+                  onPressed: _handleShuffle,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.textPrimary,
+                    side: BorderSide(
+                      color: theme.primaryColor.withValues(alpha: 0.2),
+                    ),
+                    shape: const StadiumBorder(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                  ),
+                  icon: Icon(
+                    Icons.shuffle_rounded,
+                    size: 16,
+                    color: theme.primaryColor,
+                  ),
+                  label: const Text(
+                    'Shuffle',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBatchActionFooter(IAppTheme theme) {
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: theme.cardBackgroundColor,
+        border: Border(
+          top: BorderSide(color: theme.primaryColor.withValues(alpha: 0.1)),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () {
+                  setState(() {
+                    if (_selectedIndices.length == widget.playlistManager.length) {
+                      _selectedIndices.clear();
+                    } else {
+                      _selectedIndices.addAll(
+                        List.generate(widget.playlistManager.length, (i) => i),
+                      );
+                    }
+                  });
+                },
+                child: Text(
+                  _selectedIndices.length == widget.playlistManager.length
+                      ? 'Deselect All'
+                      : 'Select All',
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: _selectedIndices.isEmpty ? null : _handleBatchDelete,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                ),
+                icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                label: Text('Delete (${_selectedIndices.length})'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -341,6 +527,12 @@ class PlaylistPanelState extends State<PlaylistPanel> {
 
   void refresh() {
     _songListKey.currentState?.refresh();
+  }
+
+  void hide() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
   }
 }
 
