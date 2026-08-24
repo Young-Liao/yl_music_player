@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:yl_music_player/controllers/audio_player_controller.dart';
@@ -8,6 +10,7 @@ import '../main.dart';
 import '../pages/playlist_panel.dart';
 import '../themes/theme_provider.dart';
 import '../utils/data_structures/track_metadata_item.dart';
+import '../utils/link_service.dart';
 
 class PlaybackControls extends StatefulWidget {
   final AudioPlayerController audioController;
@@ -28,6 +31,10 @@ class PlaybackControls extends StatefulWidget {
 class _PlaybackControlsState extends State<PlaybackControls>
     with TrackStepperMixin {
   bool get _isPlaying => audioController.isPlaying;
+  bool _isPanelOpen =
+      false; // Guard to prevent stacking multiple playlist panels
+
+  StreamSubscription<String>? _linkSubscription;
 
   @override
   AudioPlayerController get audioController => widget.audioController;
@@ -42,6 +49,18 @@ class _PlaybackControlsState extends State<PlaybackControls>
   void initState() {
     super.initState();
     _bindSystemMediaCallbacks();
+    _initAppLinksListener();
+  }
+
+  void _initAppLinksListener() {
+    _linkSubscription = LinkService.instance.linkStream.listen((
+      String path,
+    ) async {
+      await widget.playlistManager.addFileNextToCurrent(path);
+      _showPlaylistPanel(autoPickFile: false);
+      await nextSong();
+      await audioController.setPlaying(true);
+    });
   }
 
   /// Binds system Control Center / Lockscreen actions to internal player logic
@@ -71,6 +90,7 @@ class _PlaybackControlsState extends State<PlaybackControls>
   void dispose() {
     // Unbind callbacks when leaving PlayerPage to prevent memory leaks or dangling calls
     _unbindSystemMediaCallbacks();
+    _linkSubscription?.cancel();
     super.dispose();
   }
 
@@ -81,22 +101,42 @@ class _PlaybackControlsState extends State<PlaybackControls>
     systemMediaHandler.onSkipPreviousCallback = null;
   }
 
-  void _showPlaylistPanel({required bool autoPickFile}) => PlaylistPanel.show(
-    context,
-    isPlaying: _isPlaying,
-    playlistManager: playlistManager,
-    audioController: audioController,
-    onPlayTrack: (String path) async {
-      // audioController.loadTrack(path, isLocalFile: true);
-      await loadSong(TrackMetadataItem.onlyPath(path));
-      playlistManager.updateCurrentIndexWithPath(path);
-      await audioController.setPlaying(true);
-      if (mounted) {
-        setState(() {});
-      }
-    },
-    autoPickFile: autoPickFile,
-  );
+  void _showPlaylistPanel({required bool autoPickFile}) {
+    if (_isPanelOpen) {
+      // Force the active panel instance to re-sync its track list
+      playlistPanelKey?.currentState?.refresh();
+      return;
+    }
+
+    _isPanelOpen = true;
+    playlistPanelKey = GlobalKey<PlaylistPanelState>();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: false,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      builder: (context) {
+        return PlaylistPanel(
+          key: playlistPanelKey, // Pass key here
+          playlistManager: playlistManager,
+          audioController: audioController,
+          onPlayTrack: (String path) async {
+            await loadSong(TrackMetadataItem.onlyPath(path));
+            playlistManager.updateCurrentIndexWithPath(path);
+            await audioController.setPlaying(true);
+            playlistPanelKey?.currentState?.refresh();
+            if (mounted) setState(() {});
+          },
+          autoPickFile: autoPickFile,
+        );
+      },
+    ).then((_) {
+      _isPanelOpen = false;
+      playlistPanelKey = null;
+    });
+  }
 
   void _onTriggerPlayback() async {
     final song = await playlistManager.getCurrentMetadata();
@@ -106,7 +146,8 @@ class _PlaybackControlsState extends State<PlaybackControls>
       if (!audioController.loaded) {
         await loadSong(song);
       }
-      audioController.setPlaying(!_isPlaying);
+      await audioController.setPlaying(!_isPlaying);
+      playlistPanelKey?.currentState?.refresh();
     }
     setState(() {});
   }

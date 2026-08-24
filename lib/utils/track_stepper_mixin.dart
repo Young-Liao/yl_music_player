@@ -18,7 +18,7 @@ mixin TrackStepperMixin {
     }
   }
 
-  void nextSong() async {
+  Future<void> nextSong() async {
     final oldState = audioController.isPlaying;
     final nextItem = playlistManager.nextItem();
     await loadSong(nextItem);
@@ -26,7 +26,7 @@ mixin TrackStepperMixin {
     audioController.seek(Duration.zero);
   }
 
-  void prevSong() async {
+  Future<void> prevSong() async {
     final oldState = audioController.isPlaying;
     final prevItem = playlistManager.prevItem();
     await loadSong(prevItem);
@@ -34,7 +34,7 @@ mixin TrackStepperMixin {
     audioController.seek(Duration.zero);
   }
 
-  void playCompleted() async {
+  Future<void> playCompleted() async {
     if (audioController.loopType == LoopType.loop) {
       nextSong();
     } else {

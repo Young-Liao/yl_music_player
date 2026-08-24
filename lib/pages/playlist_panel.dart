@@ -12,7 +12,6 @@ class PlaylistPanel extends StatefulWidget {
   final PlaylistManager playlistManager;
   final AudioPlayerController audioController;
   final ValueChanged<String> onPlayTrack;
-  final bool isPlaying;
   final bool autoPickFile;
 
   const PlaylistPanel({
@@ -20,7 +19,6 @@ class PlaylistPanel extends StatefulWidget {
     required this.playlistManager,
     required this.audioController,
     required this.onPlayTrack,
-    required this.isPlaying,
     this.autoPickFile = false,
   });
 
@@ -29,7 +27,6 @@ class PlaylistPanel extends StatefulWidget {
     required PlaylistManager playlistManager,
     required AudioPlayerController audioController,
     required ValueChanged<String> onPlayTrack,
-    required bool isPlaying,
     bool autoPickFile = false,
   }) {
     return showModalBottomSheet(
@@ -43,7 +40,6 @@ class PlaylistPanel extends StatefulWidget {
           playlistManager: playlistManager,
           audioController: audioController,
           onPlayTrack: onPlayTrack,
-          isPlaying: isPlaying,
           autoPickFile: autoPickFile,
         );
       },
@@ -51,10 +47,10 @@ class PlaylistPanel extends StatefulWidget {
   }
 
   @override
-  State<PlaylistPanel> createState() => _PlaylistPanelState();
+  State<PlaylistPanel> createState() => PlaylistPanelState();
 }
 
-class _PlaylistPanelState extends State<PlaylistPanel> {
+class PlaylistPanelState extends State<PlaylistPanel> {
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
 
@@ -501,7 +497,7 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
                     AnimatedEqualizer(
                       color: theme.primaryColor,
                       size: 16,
-                      isPlaying: widget.isPlaying,
+                      isPlaying: widget.audioController.isPlaying,
                     ),
                   ],
                   const SizedBox(width: 8),
@@ -597,7 +593,8 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
   void _scrollToCurrentTrack(ScrollController scrollController) {
     debugPrint("SCROLLING TO CURRENT TRACK");
     final currentIndex = widget.playlistManager.currentIndex;
-    if (currentIndex < 0 || currentIndex >= widget.playlistManager.length) return;
+    if (currentIndex < 0 || currentIndex >= widget.playlistManager.length)
+      return;
 
     const double itemTotalHeight = 78.0; // 68px item + 10px margin
     final double targetOffset = currentIndex * itemTotalHeight;
@@ -616,4 +613,15 @@ class _PlaylistPanelState extends State<PlaylistPanel> {
       );
     }
   }
+
+  /// Public method to force a sync and rebuild from external state changes
+  void refresh() {
+    if (mounted) {
+      setState(() {
+        _syncMetadataList();
+      });
+    }
+  }
 }
+
+GlobalKey<PlaylistPanelState>? playlistPanelKey;

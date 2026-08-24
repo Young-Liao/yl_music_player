@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:yl_music_player/components/lyrics_view.dart';
-import 'package:yl_music_player/main.dart';
 import 'package:yl_music_player/utils/data_structures/track_metadata_item.dart';
 import '../components/playback_controls.dart';
 import 'package:yl_music_player/components/progress_bar.dart';
@@ -18,7 +17,16 @@ import '../components/header_bar.dart';
 enum PlayerDisplayMode { metadata, lyrics }
 
 class PlayerPage extends StatefulWidget {
-  const PlayerPage({super.key});
+  final PlaylistManager playlistManager;
+  /* = PlaylistManager(db: dbStorage) */
+  final LyricsHandler lyricsHandler;
+  /* = LyricsHandler() */
+
+  const PlayerPage({
+    super.key,
+    required this.playlistManager,
+    required this.lyricsHandler,
+  });
 
   @override
   State<StatefulWidget> createState() => _PlayerPageState();
@@ -30,8 +38,6 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
   late final AudioPlayerController _audioController = AudioPlayerController(
     playbackCompleted: playCompleted,
   );
-  final PlaylistManager _playlistManager = PlaylistManager(db: dbStorage);
-  final LyricsHandler _lyricsHandler = LyricsHandler();
 
   PlayerDisplayMode _displayMode = PlayerDisplayMode.metadata;
 
@@ -39,10 +45,10 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
   AudioPlayerController get audioController => _audioController;
 
   @override
-  PlaylistManager get playlistManager => _playlistManager;
+  PlaylistManager get playlistManager => widget.playlistManager;
 
   @override
-  LyricsHandler get lyricsHandler => _lyricsHandler;
+  LyricsHandler get lyricsHandler => widget.lyricsHandler;
 
   double _currentSliderValue = 0.0;
 
@@ -54,7 +60,9 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
       onSongReady: (filePath) async {
         // Replace with your actual PlayerController or AudioPlayer instance
         await loadSong(TrackMetadataItem.onlyPath(filePath));
-        debugPrint("Successfully loaded song at index ${playlistManager.currentIndex}: $filePath");
+        debugPrint(
+          "Successfully loaded song at index ${playlistManager.currentIndex}: $filePath",
+        );
       },
     );
   }
@@ -83,7 +91,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
   Widget _buildLyricsView() {
     return LyricsView(
       key: const ValueKey('lyrics_view'),
-      lyricsHandler: _lyricsHandler,
+      lyricsHandler: lyricsHandler,
       currentPosition: Duration(seconds: _currentSliderValue.toInt()),
       onSeekTo: (value) => audioController.seek(value),
     );
@@ -129,8 +137,8 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
         ),
         PlaybackControls(
           audioController: _audioController,
-          playlistManager: _playlistManager,
-          lyricsManager: _lyricsHandler,
+          playlistManager: playlistManager,
+          lyricsManager: lyricsHandler,
         ),
       ],
     );

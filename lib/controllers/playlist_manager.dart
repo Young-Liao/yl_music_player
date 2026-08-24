@@ -207,15 +207,33 @@ class PlaylistManager {
   // ---------------------------------------------------------------------------
 
   /// Immediately extracts metadata and caches item upon insertion.
+  /// Adds a track next to the currently playing item.
+  /// If the file already exists in the playlist, moves it next to current instead.
   Future<void> addFileNextToCurrent(String filePath) async {
-    final insertIndex = _playlistPaths.isEmpty ? 0 : _currentIndex + 1;
-    _playlistPaths.insert(insertIndex, filePath);
+    final existingIndex = _playlistPaths.indexOf(filePath);
 
-    // Warm metadata cache immediately
-    final metadata = await _extractMetadata(filePath);
-    _putToCache(filePath, metadata);
+    if (existingIndex != -1) {
+      // 1. Target track already exists: perform relocation next to current track
+      final targetIndex = _playlistPaths.isEmpty ? 0 : _currentIndex + 1;
 
-    await savePlaylistToDb();
+      // Avoid unnecessary move if it's already in the target position
+      if (existingIndex == targetIndex ||
+          (_currentIndex == existingIndex && _playlistPaths.length == 1)) {
+        return;
+      }
+
+      await moveItem(existingIndex, targetIndex);
+    } else {
+      // 2. Target track is new: insert next to current track
+      final insertIndex = _playlistPaths.isEmpty ? 0 : _currentIndex + 1;
+      _playlistPaths.insert(insertIndex, filePath);
+
+      // Warm metadata cache immediately
+      final metadata = await _extractMetadata(filePath);
+      _putToCache(filePath, metadata);
+
+      await savePlaylistToDb();
+    }
   }
 
   /// Delete Item and return whether it is current track.
