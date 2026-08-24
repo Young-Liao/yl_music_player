@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:yl_music_player/components/lyrics/lyrics_view.dart';
+import 'package:yl_music_player/main.dart';
 import 'package:yl_music_player/utils/data_structures/track_metadata_item.dart';
 import 'package:yl_music_player/utils/link_service.dart';
 import '../components/player/playback_controls.dart';
@@ -46,14 +47,12 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
     '.ogg',
   };
 
-  late final AudioPlayerController _audioController;
-
   PlayerDisplayMode _displayMode = PlayerDisplayMode.metadata;
   bool _isDragging = false;
   double _currentSliderValue = 0.0;
 
   @override
-  AudioPlayerController get audioController => _audioController;
+  AudioPlayerController get audioController => audioPlayerController;
 
   @override
   PlaylistManager get playlistManager => widget.playlistManager;
@@ -64,9 +63,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
   @override
   void initState() {
     super.initState();
-    _audioController = AudioPlayerController(
-      playbackCompleted: () => playCompleted(),
-    );
+    audioPlayerController.playbackCompleted = playCompleted;
 
     audioController.lyricsHandler = lyricsHandler;
     playlistManager
@@ -83,7 +80,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
 
   @override
   void dispose() {
-    _audioController.dispose();
+    audioController.dispose();
     super.dispose();
   }
 
@@ -113,7 +110,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
   Widget _buildTrackMetadata() {
     return TrackMetadata(
       key: const ValueKey('track_metadata'),
-      controller: _audioController,
+      controller: audioController,
     );
   }
 
@@ -155,7 +152,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
       mainAxisSize: MainAxisSize.min,
       children: [
         ProgressBar(
-          controller: _audioController,
+          controller: audioController,
           onSliderValueChanged: (value) {
             if (mounted) {
               setState(() {
@@ -165,7 +162,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
           },
         ),
         PlaybackControls(
-          audioController: _audioController,
+          audioController: audioController,
           playlistManager: playlistManager,
           lyricsManager: lyricsHandler,
         ),
@@ -255,7 +252,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: _audioController,
+      listenable: audioController,
       builder: (context, _) {
         final theme = CustomThemeProvider.of(context);
         final isDesktop =

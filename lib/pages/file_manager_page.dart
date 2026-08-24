@@ -8,10 +8,19 @@ import '../components/file_manager/library_sidebar.dart';
 import '../components/file_manager/music_files_window.dart';
 import '../components/file_manager/playlists_window.dart';
 import '../components/window/header_bar.dart';
+import '../controllers/audio/audio_player_controller.dart';
+import '../controllers/song_list/file_list_manager.dart';
 import '../themes/theme_provider.dart';
 
 class FileManagerPage extends StatefulWidget {
-  const FileManagerPage({super.key});
+  final AudioPlayerController audioController;
+  final FileListManager fileListManager;
+
+  const FileManagerPage({
+    super.key,
+    required this.audioController,
+    required this.fileListManager,
+  });
 
   @override
   State<FileManagerPage> createState() => _FileManagerPageState();
@@ -74,10 +83,10 @@ class _FileManagerPageState extends State<FileManagerPage> {
                           ),
                           child: HeaderBar(),
                         ),
-                        const Divider(
+                        Divider(
                           height: 1,
                           thickness: 1,
-                          color: Color(0xFFF0F1F5),
+                          color: theme.outerBackgroundColor,
                         ),
 
                         // Workspace Area
@@ -96,10 +105,10 @@ class _FileManagerPageState extends State<FileManagerPage> {
                                         theme: theme,
                                       ),
                                     ),
-                                    const VerticalDivider(
+                                    VerticalDivider(
                                       width: 1,
                                       thickness: 1,
-                                      color: Color(0xFFF0F1F5),
+                                      color: theme.outerBackgroundColor,
                                     ),
                                   ],
                                   Expanded(child: _buildMainContent()),
@@ -177,16 +186,22 @@ class _FileManagerPageState extends State<FileManagerPage> {
     );
   }
 
+  Widget _buildMusicFilesWindow() {
+    return MusicFilesWindow(audioController: widget.audioController,
+        fileListManager: widget.fileListManager,
+        onPlayTrack: (value) => {});
+  }
+
   Widget _buildMainContent() {
     switch (_selectedLibraryIndex) {
       case 0:
-        return const MusicFilesWindow();
+        return _buildMusicFilesWindow();
       case 1:
         return const PlaylistsWindow();
       case 2:
         return const GroupsWindow();
       default:
-        return const MusicFilesWindow();
+        return _buildMusicFilesWindow();
     }
   }
 }

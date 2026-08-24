@@ -9,12 +9,16 @@ class TrackMetadataItem {
   final String filePath;
   final String title;
   final String artist;
+  final String album;
+  final Duration duration;
   final Uint8List? compressedArtwork;
 
   TrackMetadataItem({
     required this.filePath,
     required this.title,
     required this.artist,
+    this.album = '',
+    this.duration = Duration.zero,
     this.compressedArtwork,
   });
 
@@ -24,13 +28,21 @@ class TrackMetadataItem {
       filePath: "Unknown Path",
       title: "Waiting for a song...",
       artist: "...",
+      album: "",
+      duration: Duration.zero,
       compressedArtwork: null,
     );
   }
 
   /// Only file path
   factory TrackMetadataItem.onlyPath(String filePath) {
-    return TrackMetadataItem(filePath: filePath, title: "", artist: "");
+    return TrackMetadataItem(
+      filePath: filePath,
+      title: "",
+      artist: "",
+      album: "",
+      duration: Duration.zero,
+    );
   }
 
   /// Synchronous fallback when metadata parsing fails or isn't ready yet.
@@ -44,6 +56,8 @@ class TrackMetadataItem {
       filePath: path,
       title: cleanTitle,
       artist: 'Unknown Artist',
+      album: 'Unknown Album',
+      duration: Duration.zero,
       compressedArtwork: null,
     );
   }
@@ -56,6 +70,8 @@ class TrackMetadataItem {
       final title =
           metadata.title ?? path.split('/').last.replaceAll('.mp3', '');
       final artist = metadata.artist ?? 'Unknown Artist';
+      final album = metadata.album ?? 'Unknown Album';
+      final duration = metadata.duration ?? Duration.zero;
       final rawArtwork = metadata.picture?.data;
 
       // Compress artwork byte array to 88x88 px thumbnail to save RAM and avoid render lag
@@ -71,11 +87,39 @@ class TrackMetadataItem {
         filePath: path,
         title: title,
         artist: artist,
+        album: album,
+        duration: duration,
         compressedArtwork: compressedArtwork,
       );
     } catch (e) {
       return TrackMetadataItem.fallback(path);
     }
+  }
+
+  /// Convert JSON map to TrackMetadataItem (for DB or cache storage)
+  factory TrackMetadataItem.fromJson(Map<String, dynamic> json) {
+    return TrackMetadataItem(
+      filePath: json['filePath'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      artist: json['artist'] as String? ?? '',
+      album: json['album'] as String? ?? '',
+      duration: Duration(milliseconds: json['durationMs'] as int? ?? 0),
+      compressedArtwork: json['compressedArtwork'] != null
+          ? Uint8List.fromList(List<int>.from(json['compressedArtwork']))
+          : null,
+    );
+  }
+
+  /// Convert TrackMetadataItem to JSON map
+  Map<String, dynamic> toJson() {
+    return {
+      'filePath': filePath,
+      'title': title,
+      'artist': artist,
+      'album': album,
+      'durationMs': duration.inMilliseconds,
+      'compressedArtwork': compressedArtwork?.toList(),
+    };
   }
 
   /// Downscales high-resolution cover images to a thumbnail target width using Flutter UI codecs.

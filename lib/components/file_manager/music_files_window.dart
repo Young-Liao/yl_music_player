@@ -1,9 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
+import '../../controllers/audio/audio_player_controller.dart';
+import '../../controllers/song_list/file_list_manager.dart';
 import '../../themes/theme_provider.dart';
+import 'file_list_view.dart';
 
 class MusicFilesWindow extends StatelessWidget {
-  const MusicFilesWindow({super.key});
+  final AudioPlayerController audioController;
+  final FileListManager fileListManager;
+  final ValueChanged<String> onPlayTrack;
+
+  const MusicFilesWindow({
+    super.key,
+    required this.audioController,
+    required this.fileListManager,
+    required this.onPlayTrack,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -13,16 +25,14 @@ class MusicFilesWindow extends StatelessWidget {
       padding: const EdgeInsets.all(20.0),
       child: Column(
         children: [
-          // Top Control Bar
+          // Top Bar
           LayoutBuilder(
             builder: (context, constraints) {
-              final bool isCompact = constraints.maxWidth < 400;
+              final bool isCompact = constraints.maxWidth < 520;
 
               return Row(
                 children: [
                   const Spacer(),
-
-                  // View & Action Toolbar Controls
                   _ActionButton(
                     icon: BootstrapIcons.grid,
                     label: 'Icon View',
@@ -39,58 +49,33 @@ class MusicFilesWindow extends StatelessWidget {
                     theme: theme,
                   ),
                   const SizedBox(width: 8.0),
-
-                  // Upload Action Button
-                  if (isCompact)
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(BootstrapIcons.upload, size: 16.0),
-                      style: IconButton.styleFrom(
-                        backgroundColor: const Color(0xFF8B5CF6),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.all(12.0),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                      ),
-                      tooltip: 'Upload',
-                    )
-                  else
-                    ElevatedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(BootstrapIcons.upload, size: 14.0),
-                      label: const Text(
-                        'Upload',
-                        style: TextStyle(
-                          fontSize: 13.0,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF8B5CF6),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16.0,
-                          vertical: 14.0,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
+                  ElevatedButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(BootstrapIcons.upload, size: 14.0),
+                    label: isCompact ? const SizedBox.shrink() : const Text('Upload'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8B5CF6),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8.0),
                       ),
                     ),
+                  ),
                 ],
               );
             },
           ),
+          const SizedBox(height: 16.0),
 
-          // File List Workspace
+          // Table File List Workspace
           Expanded(
-            child: Center(
-              child: Text(
-                'No music files found.',
-                style: TextStyle(fontSize: 14.0, color: theme.textMuted),
-              ),
+            child: FileListView(
+              fileListManager: fileListManager,
+              audioController: audioController,
+              onPlayTrack: onPlayTrack,
+              scrollController: ScrollController(),
             ),
           ),
         ],
@@ -123,11 +108,8 @@ class _ActionButton extends StatelessWidget {
         style: IconButton.styleFrom(
           side: BorderSide(color: theme.textMuted.withValues(alpha: 0.2)),
           padding: const EdgeInsets.all(12.0),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.0),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
         ),
-        tooltip: label,
       );
     }
 
@@ -136,21 +118,12 @@ class _ActionButton extends StatelessWidget {
       icon: Icon(icon, size: 14.0, color: theme.textPrimary),
       label: Text(
         label,
-        style: TextStyle(
-          fontSize: 13.0,
-          fontWeight: FontWeight.w600,
-          color: theme.textPrimary,
-        ),
+        style: TextStyle(fontSize: 13.0, fontWeight: FontWeight.w600, color: theme.textPrimary),
       ),
       style: OutlinedButton.styleFrom(
         side: BorderSide(color: theme.textMuted.withValues(alpha: 0.2)),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 14.0,
-          vertical: 14.0,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 14.0),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
       ),
     );
   }

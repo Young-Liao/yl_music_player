@@ -1,6 +1,8 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:metadata_god/metadata_god.dart';
+import 'package:yl_music_player/controllers/audio/audio_player_controller.dart';
+import 'package:yl_music_player/controllers/song_list/file_list_manager.dart';
 import 'package:yl_music_player/navigation/app_router.dart';
 import 'package:yl_music_player/pages/file_manager_page.dart';
 import 'package:yl_music_player/pages/player_page.dart';
@@ -18,6 +20,11 @@ import 'controllers/themes/theme_controller.dart';
 
 late SystemMediaHandler systemMediaHandler;
 late IDatabaseStorage dbStorage;
+
+final AudioPlayerController audioPlayerController = AudioPlayerController();
+final playlistManager = PlaylistManager(db: dbStorage);
+final lyricsHandler = LyricsHandler();
+final fileListManager = FileListManager(db: dbStorage);
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,9 +57,6 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final playlistManager = PlaylistManager(db: dbStorage);
-    final lyricsHandler = LyricsHandler();
-
     return ValueListenableBuilder<IAppTheme>(
       valueListenable: ThemeController.instance,
       builder: (context, activeTheme, _) {
@@ -72,7 +76,10 @@ class MyApp extends StatelessWidget {
                       playlistManager: playlistManager,
                       lyricsHandler: lyricsHandler,
                     ),
-                    const FileManagerPage(),
+                    FileManagerPage(
+                      audioController: audioPlayerController,
+                      fileListManager: fileListManager,
+                    ),
                   ],
                 );
               },

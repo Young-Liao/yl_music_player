@@ -14,7 +14,7 @@ enum LoopType { loop, repeat }
 
 class AudioPlayerController extends ChangeNotifier {
   final AudioPlayer _player = AudioPlayer();
-  final Function playbackCompleted;
+  Function? playbackCompleted;
 
   // Track Metadata
   late String currentPath;
@@ -36,7 +36,7 @@ class AudioPlayerController extends ChangeNotifier {
   LyricsHandler? lyricsHandler;
   String? _lastSyncedLyricLine;
 
-  AudioPlayerController({required this.playbackCompleted}) {
+  AudioPlayerController() {
     _initStreams();
     loadEmpty();
 
@@ -49,7 +49,7 @@ class AudioPlayerController extends ChangeNotifier {
       if (state.processingState == ProcessingState.completed ||
           (state.processingState == ProcessingState.idle && _forceStopped)) {
         loaded = false;
-        playbackCompleted();
+        playbackCompleted?.call();
         _forceStopped = false;
       }
       notifyListeners();

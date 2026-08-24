@@ -132,7 +132,7 @@ class SongListViewState extends State<SongListView> {
                   index: index,
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 10.0),
-                    child: _buildTrackTile(
+                    child: buildTrackTile(
                         context, theme, track, index, isActive),
                   ),
                 );
@@ -144,7 +144,7 @@ class SongListViewState extends State<SongListView> {
     );
   }
 
-  Widget _buildTrackTile(
+  Widget buildTrackTile(
       BuildContext context,
       IAppTheme theme,
       TrackMetadataItem track,
@@ -210,9 +210,9 @@ class SongListViewState extends State<SongListView> {
               ),
               child: Row(
                 children: [
-                  _buildTrackArtwork(theme, track),
+                  buildTrackArtwork(theme, track),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildTrackInfo(theme, track, isActive)),
+                  Expanded(child: buildTrackInfo(theme, track, isActive)),
                   if (isActive) ...[
                     const SizedBox(width: 12),
                     AnimatedEqualizer(
@@ -239,7 +239,7 @@ class SongListViewState extends State<SongListView> {
     );
   }
 
-  Widget _buildTrackArtwork(IAppTheme theme, TrackMetadataItem track) {
+  Widget buildTrackArtwork(IAppTheme theme, TrackMetadataItem track) {
     final artworkBytes = track.compressedArtwork;
     const artworkSize = 22.0;
     const borderRadius = 8.0;
@@ -277,7 +277,7 @@ class SongListViewState extends State<SongListView> {
     );
   }
 
-  Widget _buildTrackInfo(
+  Widget buildTrackInfo(
       IAppTheme theme,
       TrackMetadataItem track,
       bool isActive,
