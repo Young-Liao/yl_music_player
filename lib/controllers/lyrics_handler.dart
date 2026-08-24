@@ -63,7 +63,7 @@ class LyricsHandler {
   void _parseLrc(String lrcText) {
     final timeTagRegExp = RegExp(r'\[(\d{2}):(\d{2})\.(\d{2,3})\]');
     final parsed = <LyricLine>[];
-    debugPrint("Successfully loaded lyrics: $lrcText");
+    debugPrint("Successfully loaded lyrics.");
 
     for (var line in lrcText.split('\n')) {
       line = line.trim();

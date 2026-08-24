@@ -1,6 +1,6 @@
 import 'package:yl_music_player/controllers/audio_player_controller.dart';
 import 'package:yl_music_player/controllers/lyrics_handler.dart';
-import 'package:yl_music_player/controllers/playlist_manager.dart';
+import 'package:yl_music_player/controllers/song_list/song_list_managers.dart';
 
 import 'data_structures/track_metadata_item.dart';
 

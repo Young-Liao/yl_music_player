@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:cross_file/cross_file.dart';
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
@@ -10,8 +12,9 @@ import 'package:yl_music_player/components/progress_bar.dart';
 import 'package:yl_music_player/components/track_metadata.dart';
 import 'package:yl_music_player/controllers/audio_player_controller.dart';
 import 'package:yl_music_player/controllers/lyrics_handler.dart';
-import 'package:yl_music_player/controllers/playlist_manager.dart';
+import 'package:yl_music_player/controllers/song_list/song_list_managers.dart';
 import 'package:yl_music_player/utils/track_stepper_mixin.dart';
+import '../themes/app_theme_interface.dart';
 import '../themes/theme_provider.dart';
 import '../components/header_bar.dart';
 
@@ -19,9 +22,7 @@ enum PlayerDisplayMode { metadata, lyrics }
 
 class PlayerPage extends StatefulWidget {
   final PlaylistManager playlistManager;
-  /* = PlaylistManager(db: dbStorage) */
   final LyricsHandler lyricsHandler;
-  /* = LyricsHandler() */
 
   const PlayerPage({
     super.key,
@@ -36,12 +37,20 @@ class PlayerPage extends StatefulWidget {
 class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
   static const double _kWideLayoutThreshold = 680.0;
 
-  late final AudioPlayerController _audioController = AudioPlayerController(
-    playbackCompleted: () =>
-      playCompleted(),
-  );
+  static const _supportedAudioExtensions = {
+    '.mp3',
+    '.flac',
+    '.wav',
+    '.m4a',
+    '.aac',
+    '.ogg',
+  };
+
+  late final AudioPlayerController _audioController;
 
   PlayerDisplayMode _displayMode = PlayerDisplayMode.metadata;
+  bool _isDragging = false;
+  double _currentSliderValue = 0.0;
 
   @override
   AudioPlayerController get audioController => _audioController;
@@ -52,27 +61,45 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
   @override
   LyricsHandler get lyricsHandler => widget.lyricsHandler;
 
-  double _currentSliderValue = 0.0;
-
   @override
   void initState() {
     super.initState();
+    _audioController = AudioPlayerController(
+      playbackCompleted: () => playCompleted(),
+    );
+
     audioController.lyricsHandler = lyricsHandler;
-    playlistManager.loadPlaylistFromDb(
+    playlistManager
+        .loadListFromDb(
       onSongReady: (filePath) async {
-        // Replace with your actual PlayerController or AudioPlayer instance
         await loadSong(TrackMetadataItem.onlyPath(filePath));
         debugPrint(
           "Successfully loaded song at index ${playlistManager.currentIndex}: $filePath",
         );
       },
-    ).then((_) => LinkService.instance.releaseCache);
+    )
+        .then((_) => LinkService.instance.releaseCache());
   }
 
   @override
   void dispose() {
     _audioController.dispose();
     super.dispose();
+  }
+
+  /// Check if file extension matches supported audio formats
+  bool _isAudioFile(String path) {
+    final lower = path.toLowerCase();
+    return _supportedAudioExtensions.any(lower.endsWith);
+  }
+
+  /// Process audio files from either Drag & Drop or "Open With"
+  void _handleIncomingFiles(List<String> rawPaths) {
+    for (final path in rawPaths) {
+      if (_isAudioFile(path)) {
+        LinkService.instance.addLink(path);
+      }
+    }
   }
 
   void _toggleDisplayMode() {
@@ -189,6 +216,42 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
     );
   }
 
+  Widget _buildDragOverlay(IAppTheme activeTheme) {
+    return Positioned.fill(
+      child: Container(
+        color: activeTheme.themeData.primaryColor.withOpacity(0.2),
+        child: Center(
+          child: Card(
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: 32,
+                vertical: 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.library_music_rounded, size: 48),
+                  SizedBox(height: 12),
+                  Text(
+                    'Drop audio files to play',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -197,52 +260,65 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
         final theme = CustomThemeProvider.of(context);
         final isDesktop =
             !kIsWeb &&
-            (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+                (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
-        return Scaffold(
-          backgroundColor: theme.outerBackgroundColor,
-          body: Stack(
-            children: [
-              // 1. Background layer: Full window DragToMoveArea for all outer gaps
-              if (isDesktop)
-                Positioned.fill(
-                  child: DragToMoveArea(
-                    child: Container(color: Colors.transparent),
-                  ),
-                ),
-
-              // 2. Foreground layer: Main Card Content
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Container(
-                    width: double.infinity,
-                    height: double.infinity,
-                    padding: const EdgeInsets.only(
-                      left: 24.0,
-                      right: 24.0,
-                      top: 8.0,
-                      // Reduced so HeaderBar's top DragToMoveArea controls this area
-                      bottom: 28.0,
+        return DropTarget(
+          onDragEntered: (_) => setState(() => _isDragging = true),
+          onDragExited: (_) => setState(() => _isDragging = false),
+          onDragDone: (details) {
+            setState(() => _isDragging = false);
+            final paths = details.files
+                .map((XFile file) => file.path)
+                .toList();
+            _handleIncomingFiles(paths);
+          },
+          child: Scaffold(
+            backgroundColor: theme.outerBackgroundColor,
+            body: Stack(
+              children: [
+                // 1. Background layer: Full window DragToMoveArea for all outer gaps
+                if (isDesktop)
+                  Positioned.fill(
+                    child: DragToMoveArea(
+                      child: Container(color: Colors.transparent),
                     ),
-                    decoration: BoxDecoration(
-                      color: theme.cardBackgroundColor,
-                      borderRadius: BorderRadius.circular(
-                        theme.cardCornerRadius,
+                  ),
+
+                // 2. Foreground layer: Main Card Content
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Container(
+                      width: double.infinity,
+                      height: double.infinity,
+                      padding: const EdgeInsets.only(
+                        left: 24.0,
+                        right: 24.0,
+                        top: 8.0,
+                        bottom: 28.0,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
+                      decoration: BoxDecoration(
+                        color: theme.cardBackgroundColor,
+                        borderRadius: BorderRadius.circular(
+                          theme.cardCornerRadius,
                         ),
-                      ],
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: _buildDynamicLayout(),
                     ),
-                    child: _buildDynamicLayout(),
                   ),
                 ),
-              ),
-            ],
+
+                // 3. Drag overlay layer
+                if (_isDragging) _buildDragOverlay(theme),
+              ],
+            ),
           ),
         );
       },

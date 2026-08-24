@@ -110,6 +110,7 @@ class LinkService {
   /// Flushes all cached paths accumulated during cold start to active stream listeners.
   /// Call this method in the UI layer right after setting up `linkStream.listen(...)`.
   void releaseCache() {
+    debugPrint("Releasing Cache");
     _isListeningReady = true;
     if (_pendingCache.isNotEmpty) {
       for (final path in List<String>.from(_pendingCache)) {

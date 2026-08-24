@@ -27,7 +27,7 @@ class AudioPlayerController extends ChangeNotifier {
   bool loaded = false;
   Duration position = Duration.zero;
   Duration duration = Duration.zero;
-  double volume = SettingsStorage.instance.volume;
+  double volume = 0;
   LoopType loopType = LoopType.loop;
   bool _isLoading = false;
   bool _forceStopped = false;
@@ -39,6 +39,8 @@ class AudioPlayerController extends ChangeNotifier {
   AudioPlayerController({required this.playbackCompleted}) {
     _initStreams();
     loadEmpty();
+
+    setVolume(SettingsStorage.instance.volume);
   }
 
   void _initStreams() {
