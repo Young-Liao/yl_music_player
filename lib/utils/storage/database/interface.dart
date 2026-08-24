@@ -12,5 +12,9 @@ abstract class IDatabaseStorage {
   Future<void> saveCachedMetadata(TrackMetadataItem metadata);
   Future<Map<String, TrackMetadataItem>> loadAllCachedMetadata();
 
+  // File List Persistence
+  Future<void> saveFileList(List<TrackMetadataItem> items);
+  Future<List<TrackMetadataItem>> loadFileList();
+
   Future<void> close();
 }

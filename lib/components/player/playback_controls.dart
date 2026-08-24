@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:yl_music_player/controllers/audio/audio_player_controller.dart';
 import 'package:yl_music_player/controllers/lyrics/lyrics_handler.dart';
-import 'package:yl_music_player/controllers/song_list/song_list_managers.dart';
 import 'package:yl_music_player/utils/track_stepper_mixin.dart';
+import '../../controllers/song_list/playlist_manager.dart';
 import '../../main.dart';
 import '../../pages/playlist_panel.dart';
 import '../../themes/theme_provider.dart';
@@ -25,10 +25,10 @@ class PlaybackControls extends StatefulWidget {
   });
 
   @override
-  State<PlaybackControls> createState() => _PlaybackControlsState();
+  State<PlaybackControls> createState() => PlaybackControlsState();
 }
 
-class _PlaybackControlsState extends State<PlaybackControls>
+class PlaybackControlsState extends State<PlaybackControls>
     with TrackStepperMixin {
   bool get _isPlaying => audioController.isPlaying;
   bool _isPanelOpen =
@@ -119,16 +119,11 @@ class _PlaybackControlsState extends State<PlaybackControls>
       barrierColor: Colors.black.withValues(alpha: 0.4),
       builder: (context) {
         return PlaylistPanel(
-          key: playlistPanelKey, // Pass key here
+          key: playlistPanelKey,
+          // Pass key here
           playlistManager: playlistManager,
           audioController: audioController,
-          onPlayTrack: (String path) async {
-            await loadSong(TrackMetadataItem.onlyPath(path));
-            playlistManager.updateCurrentIndexWithPath(path);
-            await audioController.setPlaying(true);
-            playlistPanelKey?.currentState?.refresh();
-            if (mounted) setState(() {});
-          },
+          onPlayTrack: onPlayTrack,
           autoPickFile: autoPickFile,
         );
       },
@@ -259,5 +254,20 @@ class _PlaybackControlsState extends State<PlaybackControls>
         ),
       ],
     );
+  }
+
+  void onPlayTrack(String path) async {
+    await loadSong(TrackMetadataItem.onlyPath(path));
+    playlistManager.updateCurrentIndexWithPath(path);
+    await audioController.setPlaying(true);
+    playlistPanelKey?.currentState?.refresh();
+    if (mounted) setState(() {});
+  }
+
+  void onPlayTrackAndCheckExistence(String path) async {
+    if (!playlistManager.playlistPaths.contains(path)) {
+      playlistManager.addFileNextToCurrent(path);
+    }
+    onPlayTrack(path);
   }
 }

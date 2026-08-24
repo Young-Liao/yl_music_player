@@ -3,9 +3,10 @@ import 'package:bootstrap_icons/bootstrap_icons.dart';
 import '../../controllers/audio/audio_player_controller.dart';
 import '../../controllers/song_list/file_list_manager.dart';
 import '../../themes/theme_provider.dart';
+import '../../utils/file/file_picker.dart';
 import 'file_list_view.dart';
 
-class MusicFilesWindow extends StatelessWidget {
+class MusicFilesWindow extends StatefulWidget {
   final AudioPlayerController audioController;
   final FileListManager fileListManager;
   final ValueChanged<String> onPlayTrack;
@@ -16,6 +17,50 @@ class MusicFilesWindow extends StatelessWidget {
     required this.fileListManager,
     required this.onPlayTrack,
   });
+
+  @override
+  State<MusicFilesWindow> createState() => _MusicFilesWindowState();
+}
+
+class _MusicFilesWindowState extends State<MusicFilesWindow> {
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+
+    widget.fileListManager.loadListFromDb();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<List<String>> _handleAdd() async {
+    List<String> paths = await pickMultipleMusicFiles();
+    if (paths.isEmpty) return paths;
+
+    for (final path in paths) {
+      // 1. Ensure metadata is extracted and cached *before* adding to the path list
+      if (widget.fileListManager.peekCache(path) == null) {
+        final metadata = await widget.fileListManager.extractMetadata(path);
+        widget.fileListManager.putToCache(path, metadata);
+      }
+
+      // 2. Add file to the list manager
+      widget.fileListManager.addFileAt(path, 0);
+    }
+
+    // 3. Re-sort if a sort option is active so it lands in the correct position
+    widget.fileListManager.setSortOption(widget.fileListManager.currentSort);
+
+    if (mounted) setState(() {});
+
+    return paths;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,11 +95,11 @@ class MusicFilesWindow extends StatelessWidget {
                   ),
                   const SizedBox(width: 8.0),
                   ElevatedButton.icon(
-                    onPressed: () {},
+                    onPressed: _handleAdd,
                     icon: const Icon(BootstrapIcons.upload, size: 14.0),
                     label: isCompact ? const SizedBox.shrink() : const Text('Upload'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF8B5CF6),
+                      backgroundColor: theme.primaryColor,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
@@ -72,10 +117,10 @@ class MusicFilesWindow extends StatelessWidget {
           // Table File List Workspace
           Expanded(
             child: FileListView(
-              fileListManager: fileListManager,
-              audioController: audioController,
-              onPlayTrack: onPlayTrack,
-              scrollController: ScrollController(),
+              fileListManager: widget.fileListManager,
+              audioController: widget.audioController,
+              onPlayTrack: widget.onPlayTrack,
+              scrollController: _scrollController,
             ),
           ),
         ],

@@ -1,7 +1,7 @@
 import 'package:yl_music_player/controllers/audio/audio_player_controller.dart';
 import 'package:yl_music_player/controllers/lyrics/lyrics_handler.dart';
-import 'package:yl_music_player/controllers/song_list/song_list_managers.dart';
 
+import '../controllers/song_list/playlist_manager.dart';
 import 'data_structures/track_metadata_item.dart';
 
 mixin TrackStepperMixin {

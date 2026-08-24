@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../components/song_list/song_list_view.dart';
 import '../controllers/audio/audio_player_controller.dart';
-import '../controllers/song_list/song_list_managers.dart';
+import '../controllers/song_list/playlist_manager.dart';
 import '../themes/app_theme_interface.dart';
 import '../themes/theme_provider.dart';
 import '../utils/file/file_picker.dart';

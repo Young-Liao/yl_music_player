@@ -1,53 +1,93 @@
+import 'dart:async';
 import 'package:yl_music_player/controllers/song_list/song_list_managers.dart';
 
-import '../../utils/data_structures/track_metadata_item.dart';
+enum FileListSortOption {
+  duration('Duration'),
+  title('Title'),
+  author('Author'),
+  album('Album');
+
+  final String label;
+
+  const FileListSortOption(this.label);
+}
 
 class FileListManager extends SongListManager {
   FileListManager({required super.db, super.maxCacheSize = 250});
 
-  // Mock track metadata corresponding to the UI design
-  final List<TrackMetadataItem> _mockTracks = [
-    TrackMetadataItem(
-      filePath: '/music/midnight_city.mp3',
-      title: 'Midnight City',
-      artist: 'M83',
-      album: "Hurry Up, We're Dreaming",
-      duration: const Duration(minutes: 4, seconds: 3),
-    ),
-    TrackMetadataItem(
-      filePath: '/music/starboy.mp3',
-      title: 'Starboy',
-      artist: 'The Weeknd, Daft Punk',
-      album: 'Starboy',
-      duration: const Duration(minutes: 3, seconds: 50),
-    ),
-    TrackMetadataItem(
-      filePath: '/music/get_lucky.mp3',
-      title: 'Get Lucky',
-      artist: 'Daft Punk ft. Pharrell Williams',
-      album: 'Random Access Memories',
-      duration: const Duration(minutes: 4, seconds: 8),
-    ),
-    TrackMetadataItem(
-      filePath: '/music/resonance.mp3',
-      title: 'Resonance',
-      artist: 'HOME',
-      album: 'Odyssey',
-      duration: const Duration(minutes: 3, seconds: 32),
-    ),
-  ];
+  FileListSortOption _currentSort = FileListSortOption.duration;
+  FileListSortOption get currentSort => _currentSort;
 
-  @override
-  int get length => _mockTracks.length;
+  Timer? _debounceTimer;
 
+  /// Loads playlist paths from the database and initializes mock tracks if empty.
   @override
-  List<String> get songPaths => _mockTracks.map((e) => e.filePath).toList();
+  Future<void> loadListFromDb({
+    Future<void> Function(String filePath)? onSongReady,
+  }) async {
+    await super.loadListFromDb();
 
-  @override
-  TrackMetadataItem getCachedMetadataAtIndex(int index) {
-    if (index < 0 || index >= _mockTracks.length) {
-      return TrackMetadataItem.empty();
+    // Apply the active sorting rule to privateSongPaths
+    _sortTracks();
+
+    if (privateSongPaths.isNotEmpty && onSongReady != null) {
+      onSongReady(privateSongPaths.first);
     }
-    return _mockTracks[index];
+  }
+
+  void setSortOption(FileListSortOption sortOption) {
+    _currentSort = sortOption;
+    _sortTracks();
+  }
+
+  void _sortTracks() {
+    if (privateSongPaths.isEmpty) return;
+
+    privateSongPaths.sort((pathA, pathB) {
+      final metaA = getCachedMetadataAtIndex(privateSongPaths.indexOf(pathA));
+      final metaB = getCachedMetadataAtIndex(privateSongPaths.indexOf(pathB));
+
+      switch (_currentSort) {
+        case FileListSortOption.duration:
+          return metaA.duration.compareTo(metaB.duration);
+        case FileListSortOption.title:
+          return metaA.title.toLowerCase().compareTo(metaB.title.toLowerCase());
+        case FileListSortOption.author:
+          return metaA.artist.toLowerCase().compareTo(metaB.artist.toLowerCase());
+        case FileListSortOption.album:
+          return metaA.album.toLowerCase().compareTo(metaB.album.toLowerCase());
+      }
+    });
+
+    // Automatically trigger database save after sorting
+    _scheduleDbSave();
+  }
+
+  @override
+  Future<void> addFileAt(String filePath, int targetIndex) async {
+    await super.addFileAt(filePath, targetIndex);
+    _scheduleDbSave();
+  }
+
+  @override
+  Future<bool> deleteItem(int index) async {
+    final result = await super.deleteItem(index);
+    if (result) {
+      _scheduleDbSave();
+    }
+    return result;
+  }
+
+  @override
+  Future<void> moveItem(int oldIndex, int newIndex) async {
+    await super.moveItem(oldIndex, newIndex);
+    _scheduleDbSave();
+  }
+
+  void _scheduleDbSave() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      await saveListToDb();
+    });
   }
 }

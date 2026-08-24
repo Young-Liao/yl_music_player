@@ -1,6 +1,7 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:metadata_god/metadata_god.dart';
+import 'package:yl_music_player/components/player/playback_controls.dart';
 import 'package:yl_music_player/controllers/audio/audio_player_controller.dart';
 import 'package:yl_music_player/controllers/song_list/file_list_manager.dart';
 import 'package:yl_music_player/navigation/app_router.dart';
@@ -15,7 +16,7 @@ import 'package:yl_music_player/utils/storage/database/sqlite.dart';
 import 'package:yl_music_player/utils/storage/settings.dart';
 import 'configs/window.dart';
 import 'controllers/lyrics/lyrics_handler.dart';
-import 'controllers/song_list/song_list_managers.dart';
+import 'controllers/song_list/playlist_manager.dart';
 import 'controllers/themes/theme_controller.dart';
 
 late SystemMediaHandler systemMediaHandler;
@@ -25,6 +26,8 @@ final AudioPlayerController audioPlayerController = AudioPlayerController();
 final playlistManager = PlaylistManager(db: dbStorage);
 final lyricsHandler = LyricsHandler();
 final fileListManager = FileListManager(db: dbStorage);
+
+final playbackControlKey = GlobalKey<PlaybackControlsState>();
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();

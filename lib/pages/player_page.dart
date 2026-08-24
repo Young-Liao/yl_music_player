@@ -13,8 +13,8 @@ import 'package:yl_music_player/components/player/progress_bar.dart';
 import 'package:yl_music_player/components/song_list/track_metadata.dart';
 import 'package:yl_music_player/controllers/audio/audio_player_controller.dart';
 import 'package:yl_music_player/controllers/lyrics/lyrics_handler.dart';
-import 'package:yl_music_player/controllers/song_list/song_list_managers.dart';
 import 'package:yl_music_player/utils/track_stepper_mixin.dart';
+import '../controllers/song_list/playlist_manager.dart';
 import '../themes/app_theme_interface.dart';
 import '../themes/theme_provider.dart';
 import '../components/window/header_bar.dart';
@@ -162,6 +162,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
           },
         ),
         PlaybackControls(
+          key: playbackControlKey,
           audioController: audioController,
           playlistManager: playlistManager,
           lyricsManager: lyricsHandler,
@@ -216,7 +217,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
   Widget _buildDragOverlay(IAppTheme activeTheme) {
     return Positioned.fill(
       child: Container(
-        color: activeTheme.themeData.primaryColor.withOpacity(0.2),
+        color: activeTheme.themeData.primaryColor.withValues(alpha: 0.2),
         child: Center(
           child: Card(
             elevation: 8,

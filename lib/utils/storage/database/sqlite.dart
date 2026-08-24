@@ -17,8 +17,6 @@ class SQLiteStorage implements IDatabaseStorage {
     if (!kIsWeb &&
         (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
       sqfliteFfiInit();
-      // Ensure sqlite3_flutter_libs overrides default binding on macOS
-      // await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
       databaseFactory = databaseFactoryFfi;
     }
 
@@ -33,26 +31,53 @@ class SQLiteStorage implements IDatabaseStorage {
 
     _db = await openDatabase(
       dbPath,
-      version: 1,
+      version: 2, // Incremented version for schema update
       onCreate: (Database db, int version) async {
-        await db.execute('''
-          CREATE TABLE playlist (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            file_path TEXT NOT NULL UNIQUE,
-            track_order INTEGER NOT NULL
-          )
-        ''');
-
-        await db.execute('''
-          CREATE TABLE metadata_cache (
-            file_path TEXT PRIMARY KEY,
-            title TEXT,
-            artist TEXT,
-            artwork BLOB
-          )
-        ''');
+        await _createTables(db);
+      },
+      onUpgrade: (Database db, int oldVersion, int newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('''
+            CREATE TABLE file_list (
+              file_path TEXT PRIMARY KEY,
+              title TEXT NOT NULL,
+              artist TEXT NOT NULL,
+              album TEXT NOT NULL,
+              duration_ms INTEGER NOT NULL
+            )
+          ''');
+        }
       },
     );
+  }
+
+  Future<void> _createTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE playlist (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        file_path TEXT NOT NULL UNIQUE,
+        track_order INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE metadata_cache (
+        file_path TEXT PRIMARY KEY,
+        title TEXT,
+        artist TEXT,
+        artwork BLOB
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE file_list (
+        file_path TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        artist TEXT NOT NULL,
+        album TEXT NOT NULL,
+        duration_ms INTEGER NOT NULL
+      )
+    ''');
   }
 
   Database get _database {
@@ -111,6 +136,45 @@ class SQLiteStorage implements IDatabaseStorage {
       );
     }
     return map;
+  }
+
+  // --- New File List Storage Methods ---
+
+  @override
+  Future<void> saveFileList(List<TrackMetadataItem> items) async {
+    final db = _database;
+    await db.transaction((txn) async {
+      await txn.delete('file_list');
+      final batch = txn.batch();
+      for (final item in items) {
+        batch.insert(
+          'file_list',
+          {
+            'file_path': item.filePath,
+            'title': item.title,
+            'artist': item.artist,
+            'album': item.album,
+            'duration_ms': item.duration.inMilliseconds,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
+  @override
+  Future<List<TrackMetadataItem>> loadFileList() async {
+    final results = await _database.query('file_list');
+    return results.map((row) {
+      return TrackMetadataItem(
+        filePath: row['file_path'] as String,
+        title: row['title'] as String? ?? '',
+        artist: row['artist'] as String? ?? '',
+        album: row['album'] as String? ?? '',
+        duration: Duration(milliseconds: row['duration_ms'] as int? ?? 0),
+      );
+    }).toList();
   }
 
   @override

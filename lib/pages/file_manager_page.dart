@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:yl_music_player/main.dart';
+import 'package:yl_music_player/navigation/app_router.dart';
 import '../components/file_manager/groups_window.dart';
 import '../components/file_manager/library_sidebar.dart';
 import '../components/file_manager/music_files_window.dart';
@@ -187,9 +189,16 @@ class _FileManagerPageState extends State<FileManagerPage> {
   }
 
   Widget _buildMusicFilesWindow() {
-    return MusicFilesWindow(audioController: widget.audioController,
-        fileListManager: widget.fileListManager,
-        onPlayTrack: (value) => {});
+    return MusicFilesWindow(
+      audioController: widget.audioController,
+      fileListManager: widget.fileListManager,
+      onPlayTrack: (path) async {
+        // playbackControlKey.currentState?.onPlayTrack(path);
+        playbackControlKey.currentState?.onPlayTrackAndCheckExistence(path);
+        await Future.delayed(const Duration(milliseconds: 50));
+        AppRouter.instance.goToPage(0); // Go to Player
+      },
+    );
   }
 
   Widget _buildMainContent() {
