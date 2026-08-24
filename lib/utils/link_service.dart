@@ -9,13 +9,12 @@ class LinkService {
   LinkService._();
 
   static const _eventChannel = EventChannel('com.youngl.ylmusic/file_stream');
+  static const _channel = MethodChannel('com.youngl.ylmusic/args');
   final StreamController<String> _linkStreamController =
   StreamController<String>.broadcast();
   StreamSubscription? _fileSubscription;
 
   Stream<String> get linkStream => _linkStreamController.stream;
-
-  static const String _kWinPipeName = r'\\.\pipe\YLMusicPlayer_IPC_Pipe_837492';
 
   static const _supportedAudioExtensions = {
     '.mp3',
@@ -62,25 +61,12 @@ class LinkService {
 
   /// Listens on the Windows Local Pipe for tracks passed from secondary instances
   void _startWindowsPipeListener() async {
-    try {
-      final pipeAddress = InternetAddress(_kWinPipeName, type: InternetAddressType.unix);
-      final server = await ServerSocket.bind(pipeAddress, 0);
-
-      server.listen((Socket socket) async {
-        try {
-          final rawPayload = await utf8.decodeStream(socket);
-          // Split payloads delimited by '|' from SendArgsToExistingInstance
-          final paths = rawPayload.split('|');
-          for (final path in paths) {
-            _processPath(path);
-          }
-        } catch (e) {
-          debugPrint('IPC Pipe Decode Error: $e');
-        }
-      });
-    } catch (e) {
-      debugPrint('Windows Named Pipe Server error: $e');
-    }
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'onNewArgs') {
+        final String newPath = call.arguments as String;
+        _processPath(newPath);
+      }
+    });
   }
 
   void addLink(String filePath) {
@@ -101,10 +87,6 @@ class LinkService {
       cleanPath = uri.toFilePath();
     } else if (cleanPath.startsWith('file://')) {
       cleanPath = Uri.decodeFull(cleanPath.replaceFirst('file://', ''));
-    }
-
-    if (Platform.isWindows) {
-      cleanPath = cleanPath.replaceAll('/', r'\');
     }
 
     if (_isAudioFile(cleanPath)) {
