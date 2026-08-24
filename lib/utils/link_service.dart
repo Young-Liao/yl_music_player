@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -7,13 +8,14 @@ class LinkService {
   static final LinkService instance = LinkService._();
   LinkService._();
 
-  // Matched exact channel name string with Swift AppDelegate / iOS / macOS
   static const _eventChannel = EventChannel('com.youngl.ylmusic/file_stream');
   final StreamController<String> _linkStreamController =
   StreamController<String>.broadcast();
   StreamSubscription? _fileSubscription;
 
   Stream<String> get linkStream => _linkStreamController.stream;
+
+  static const String _kWinPipeName = r'\\.\pipe\YLMusicPlayer_IPC_Pipe_837492';
 
   static const _supportedAudioExtensions = {
     '.mp3',
@@ -30,7 +32,7 @@ class LinkService {
   }
 
   void init({List<String>? initialArgs}) {
-    // 1. Apple Ecosystem Stream (macOS & iOS Cold Start / Runtime)
+    // 1. macOS & iOS Native EventChannel Listener
     if (Platform.isMacOS || Platform.isIOS) {
       _fileSubscription = _eventChannel.receiveBroadcastStream().listen(
             (dynamic event) {
@@ -47,10 +49,37 @@ class LinkService {
     }
 
     // 2. Windows Cold Start CLI Arguments
-    if (Platform.isWindows && initialArgs != null && initialArgs.isNotEmpty) {
-      for (final arg in initialArgs) {
-        _processPath(arg);
+    if (Platform.isWindows) {
+      if (initialArgs != null && initialArgs.isNotEmpty) {
+        for (final arg in initialArgs) {
+          _processPath(arg);
+        }
       }
+      // Start Named Pipe listener for runtime secondary instance launches
+      _startWindowsPipeListener();
+    }
+  }
+
+  /// Listens on the Windows Local Pipe for tracks passed from secondary instances
+  void _startWindowsPipeListener() async {
+    try {
+      final pipeAddress = InternetAddress(_kWinPipeName, type: InternetAddressType.unix);
+      final server = await ServerSocket.bind(pipeAddress, 0);
+
+      server.listen((Socket socket) async {
+        try {
+          final rawPayload = await utf8.decodeStream(socket);
+          // Split payloads delimited by '|' from SendArgsToExistingInstance
+          final paths = rawPayload.split('|');
+          for (final path in paths) {
+            _processPath(path);
+          }
+        } catch (e) {
+          debugPrint('IPC Pipe Decode Error: $e');
+        }
+      });
+    } catch (e) {
+      debugPrint('Windows Named Pipe Server error: $e');
     }
   }
 
@@ -63,12 +92,10 @@ class LinkService {
 
     String cleanPath = rawPath.trim();
 
-    // Remove quote wrapping from Windows CLI
     if (cleanPath.startsWith('"') && cleanPath.endsWith('"')) {
       cleanPath = cleanPath.substring(1, cleanPath.length - 1);
     }
 
-    // Convert file:// URIs (iOS/macOS AirDrop & file shares) to valid local file paths
     final uri = Uri.tryParse(cleanPath);
     if (uri != null && uri.isScheme('file')) {
       cleanPath = uri.toFilePath();
@@ -76,7 +103,6 @@ class LinkService {
       cleanPath = Uri.decodeFull(cleanPath.replaceFirst('file://', ''));
     }
 
-    // Normalize Windows path separators
     if (Platform.isWindows) {
       cleanPath = cleanPath.replaceAll('/', r'\');
     }
