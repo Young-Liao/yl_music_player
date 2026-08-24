@@ -71,11 +71,12 @@
     <array>
         <string>audio</string>
     </array>
+
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>
             <key>CFBundleTypeName</key>
-            <string>Audio File</string>
+            <string>Audio Track</string>
             <key>CFBundleTypeRole</key>
             <string>Viewer</string>
             <key>LSHandlerRank</key>
@@ -84,14 +85,16 @@
             <array>
                 <string>public.audio</string>
                 <string>public.mp3</string>
-                <string>com.apple.m4a-audio</string>
-                <string>public.waveform-audio</string>
+                <string>public.mpeg-4-audio</string>
+                <string>com.microsoft.waveform-audio</string>
             </array>
         </dict>
     </array>
 
-    <!-- Grants direct read access to local files opened from Files app -->
+    <!-- Allows direct reading of external files from the Files app -->
     <key>LSSupportsOpeningDocumentsInPlace</key>
+    <true/>
+    <key>UIFileSharingEnabled</key>
     <true/>
 </dict>
 </plist>

@@ -7,9 +7,10 @@ class LinkService {
   static final LinkService instance = LinkService._();
   LinkService._();
 
-  // Matched exact channel name string with AppDelegate.swift
+  // Matched exact channel name string with Swift AppDelegate / iOS / macOS
   static const _eventChannel = EventChannel('com.youngl.ylmusic/file_stream');
-  final StreamController<String> _linkStreamController = StreamController<String>.broadcast();
+  final StreamController<String> _linkStreamController =
+  StreamController<String>.broadcast();
   StreamSubscription? _fileSubscription;
 
   Stream<String> get linkStream => _linkStreamController.stream;
@@ -29,8 +30,8 @@ class LinkService {
   }
 
   void init({List<String>? initialArgs}) {
-    // 1. macOS Native AppleEvent Stream (Cold Start & Runtime)
-    if (Platform.isMacOS) {
+    // 1. Apple Ecosystem Stream (macOS & iOS Cold Start / Runtime)
+    if (Platform.isMacOS || Platform.isIOS) {
       _fileSubscription = _eventChannel.receiveBroadcastStream().listen(
             (dynamic event) {
           if (event is List) {
@@ -48,9 +49,7 @@ class LinkService {
     // 2. Windows Cold Start CLI Arguments
     if (Platform.isWindows && initialArgs != null && initialArgs.isNotEmpty) {
       for (final arg in initialArgs) {
-        if (File(arg).existsSync()) {
-          _processPath(arg);
-        }
+        _processPath(arg);
       }
     }
   }
@@ -59,10 +58,32 @@ class LinkService {
     _processPath(filePath);
   }
 
-  void _processPath(String filePath) {
-    if (_isAudioFile(filePath)) {
-      debugPrint('Received local track path: $filePath');
-      _linkStreamController.add(filePath);
+  void _processPath(String rawPath) {
+    if (rawPath.isEmpty) return;
+
+    String cleanPath = rawPath.trim();
+
+    // Remove quote wrapping from Windows CLI
+    if (cleanPath.startsWith('"') && cleanPath.endsWith('"')) {
+      cleanPath = cleanPath.substring(1, cleanPath.length - 1);
+    }
+
+    // Convert file:// URIs (iOS/macOS AirDrop & file shares) to valid local file paths
+    final uri = Uri.tryParse(cleanPath);
+    if (uri != null && uri.isScheme('file')) {
+      cleanPath = uri.toFilePath();
+    } else if (cleanPath.startsWith('file://')) {
+      cleanPath = Uri.decodeFull(cleanPath.replaceFirst('file://', ''));
+    }
+
+    // Normalize Windows path separators
+    if (Platform.isWindows) {
+      cleanPath = cleanPath.replaceAll('/', r'\');
+    }
+
+    if (_isAudioFile(cleanPath)) {
+      debugPrint('Received local track path: $cleanPath');
+      _linkStreamController.add(cleanPath);
     }
   }
 
