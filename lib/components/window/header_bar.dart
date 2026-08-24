@@ -15,73 +15,81 @@ class HeaderBar extends StatelessWidget {
     final isWindowsOrLinux =
         !kIsWeb && (Platform.isWindows || Platform.isLinux);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 1. Top padding strip transformed into a drag handle
-        DragToMoveArea(
-          child: Container(
-            height: 20.0,
-            color: Colors.transparent,
-          ),
-        ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isNarrow = constraints.maxWidth < 600;
 
-        // 2. Main title row
-        SizedBox(
-          height: 40.0,
-          child: Row(
-            children: [
-              // Left Title Section
-              Expanded(
-                flex: 2,
-                child: DragToMoveArea(
-                  child: Container(
-                    width: double.infinity,
-                    height: double.infinity,
-                    alignment: Alignment.centerLeft,
-                    color: Colors.transparent,
-                    child: Text(
-                      'YL Music Player',
-                      style: TextStyle(
-                        fontSize: 18.0,
-                        fontWeight: FontWeight.w700,
-                        color: theme.textPrimary,
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Top padding strip drag handle
+            DragToMoveArea(
+              child: Container(
+                height: 20.0,
+                color: Colors.transparent,
+              ),
+            ),
+
+            // Main title row
+            SizedBox(
+              height: 40.0,
+              child: Row(
+                children: [
+                  // Left Title Section
+                  Expanded(
+                    flex: isNarrow ? 3 : 2,
+                    child: DragToMoveArea(
+                      child: Container(
+                        width: double.infinity,
+                        height: double.infinity,
+                        alignment: Alignment.centerLeft,
+                        color: Colors.transparent,
+                        child: Text(
+                          'YL Music Player',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: isNarrow ? 15.0 : 18.0,
+                            fontWeight: FontWeight.w700,
+                            color: theme.textPrimary,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
 
-              // Center Segmented Navigation Switcher
-              const Expanded(
-                flex: 3,
-                child: Center(
-                  child: PageSegmentedControl(),
-                ),
-              ),
-
-              // Right Action Buttons
-              Expanded(
-                flex: 2,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    IconButton(
-                      onPressed: ThemeController.instance.toggleTheme,
-                      icon: theme.themeIcon,
-                      splashRadius: 20,
+                  // Center Segmented Navigation Switcher
+                  Expanded(
+                    flex: isNarrow ? 2 : 3,
+                    child: Center(
+                      child: PageSegmentedControl(showLabels: !isNarrow),
                     ),
-                    if (isWindowsOrLinux) ...[
-                      const SizedBox(width: 4.0),
-                      _WindowButtons(theme: theme),
-                    ],
-                  ],
-                ),
+                  ),
+
+                  // Right Action Buttons
+                  Expanded(
+                    flex: isNarrow ? 2 : 2,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          onPressed: ThemeController.instance.toggleTheme,
+                          icon: theme.themeIcon,
+                          splashRadius: 20,
+                        ),
+                        if (isWindowsOrLinux) ...[
+                          const SizedBox(width: 4.0),
+                          _WindowButtons(theme: theme),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 }

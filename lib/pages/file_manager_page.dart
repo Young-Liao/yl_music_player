@@ -1,12 +1,32 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:window_manager/window_manager.dart';
+import '../components/file_manager/groups_window.dart';
+import '../components/file_manager/library_sidebar.dart';
+import '../components/file_manager/music_files_window.dart';
+import '../components/file_manager/playlists_window.dart';
 import '../components/window/header_bar.dart';
 import '../themes/theme_provider.dart';
 
-class FileManagerPage extends StatelessWidget {
+class FileManagerPage extends StatefulWidget {
   const FileManagerPage({super.key});
+
+  @override
+  State<FileManagerPage> createState() => _FileManagerPageState();
+}
+
+class _FileManagerPageState extends State<FileManagerPage> {
+  int _selectedLibraryIndex = 0;
+  bool _isDrawerOpen = false;
+
+  void _handleSelectIndex(int index) {
+    setState(() {
+      _selectedLibraryIndex = index;
+      _isDrawerOpen = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,27 +38,17 @@ class FileManagerPage extends StatelessWidget {
       backgroundColor: theme.outerBackgroundColor,
       body: Stack(
         children: [
-          // 1. Desktop Window Drag Layer
           if (isDesktop)
             Positioned.fill(
               child: DragToMoveArea(
                 child: Container(color: Colors.transparent),
               ),
             ),
-
-          // 2. Main Card Layout
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Container(
-                width: double.infinity,
-                height: double.infinity,
-                padding: const EdgeInsets.only(
-                  left: 24.0,
-                  right: 24.0,
-                  top: 8.0,
-                  bottom: 28.0,
-                ),
+                clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
                   color: theme.cardBackgroundColor,
                   borderRadius: BorderRadius.circular(theme.cardCornerRadius),
@@ -50,22 +60,114 @@ class FileManagerPage extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Column(
-                  children: [
-                    const HeaderBar(),
-                    Expanded(
-                      child: Center(
-                        child: Text(
-                          'File Manager',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: theme.textPrimary,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final bool isNarrow = constraints.maxWidth < 700;
+
+                    return Column(
+                      children: [
+                        // Top Global App Header
+                        const Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 24.0,
+                            vertical: 8.0,
+                          ),
+                          child: HeaderBar(),
+                        ),
+                        const Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: Color(0xFFF0F1F5),
+                        ),
+
+                        // Workspace Area
+                        Expanded(
+                          child: Stack(
+                            children: [
+                              // Main Layout Row
+                              Row(
+                                children: [
+                                  if (!isNarrow) ...[
+                                    SizedBox(
+                                      width: 200,
+                                      child: LibrarySidebar(
+                                        selectedIndex: _selectedLibraryIndex,
+                                        onItemSelected: _handleSelectIndex,
+                                        theme: theme,
+                                      ),
+                                    ),
+                                    const VerticalDivider(
+                                      width: 1,
+                                      thickness: 1,
+                                      color: Color(0xFFF0F1F5),
+                                    ),
+                                  ],
+                                  Expanded(child: _buildMainContent()),
+                                ],
+                              ),
+
+                              // Floating Menu Button (Top-Left of Content Area when narrow)
+                              if (isNarrow)
+                                Positioned(
+                                  left: 12.0,
+                                  top: 14.0,
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: IconButton(
+                                      icon: Icon(
+                                        BootstrapIcons.list,
+                                        size: 20.0,
+                                        color: theme.textPrimary,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _isDrawerOpen = !_isDrawerOpen;
+                                        });
+                                      },
+                                      splashRadius: 20,
+                                      tooltip: 'Toggle Sidebar',
+                                    ),
+                                  ),
+                                ),
+
+                              // Floating Backdrop (Close on tap outside)
+                              if (isNarrow && _isDrawerOpen)
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _isDrawerOpen = false;
+                                    });
+                                  },
+                                  child: Container(
+                                    color: Colors.black.withValues(alpha: 0.2),
+                                  ),
+                                ),
+
+                              // Sliding Sidebar Overlay
+                              if (isNarrow)
+                                AnimatedPositioned(
+                                  duration: const Duration(milliseconds: 220),
+                                  curve: Curves.easeOutCubic,
+                                  left: _isDrawerOpen ? 0 : -220,
+                                  top: 0,
+                                  bottom: 0,
+                                  width: 200,
+                                  child: Material(
+                                    color: theme.cardBackgroundColor,
+                                    elevation: 8,
+                                    child: LibrarySidebar(
+                                      selectedIndex: _selectedLibraryIndex,
+                                      onItemSelected: _handleSelectIndex,
+                                      theme: theme,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                      ),
-                    ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -73,5 +175,18 @@ class FileManagerPage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildMainContent() {
+    switch (_selectedLibraryIndex) {
+      case 0:
+        return const MusicFilesWindow();
+      case 1:
+        return const PlaylistsWindow();
+      case 2:
+        return const GroupsWindow();
+      default:
+        return const MusicFilesWindow();
+    }
   }
 }

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Files - File Manager</title>
+    <style>
+        :root {
+          --primary: #7c5dfa;
+          --primary-light: #f3f0ff;
+          --bg-main: #f4f5f8;
+          --bg-card: #ffffff;
+          --text-main: #2b2d42;
+          --text-muted: #8d99ae;
+          --border: #edf2f4;
+          --hover-bg: #f8f9fa;
+          --radius: 12px;
+        }
+
+        * {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+          background-color: var(--bg-main);
+          color: var(--text-main);
+          padding: 24px;
+          display: flex;
+          justify-content: center;
+        }
+
+        .container {
+          width: 100%;
+          max-width: 1000px;
+          background: var(--bg-card);
+          border-radius: 20px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+        }
+
+        /* Section Header Controls */
+        .list-header-bar {
+          padding: 16px 24px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .section-title {
+          font-size: 15px;
+          font-weight: 700;
+          color: var(--text-main);
+        }
+
+        .controls-right {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .sort-container {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13px;
+          color: var(--text-muted);
+          font-weight: 500;
+        }
+
+        .sort-select {
+          border: 1px solid var(--border);
+          background: var(--bg-card);
+          color: var(--text-main);
+          padding: 6px 12px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          outline: none;
+          cursor: pointer;
+        }
+
+        /* Dynamic Song List Table Layout */
+        .track-list {
+          display: flex;
+          flex-direction: column;
+          padding: 8px 16px 16px 16px;
+        }
+
+        .track-row {
+          display: grid;
+          grid-template-columns: 48px 2fr 1.5fr 1fr 80px 40px;
+          align-items: center;
+          padding: 10px 12px;
+          border-radius: var(--radius);
+          transition: background-color 0.15s ease;
+        }
+
+        .track-row:not(.header-row):hover {
+          background-color: var(--hover-bg);
+        }
+
+        .header-row {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid var(--border);
+          margin-bottom: 8px;
+        }
+
+        /* Column Specific Styles */
+        .col-artwork {
+          width: 40px;
+          height: 40px;
+          border-radius: 8px;
+          object-fit: cover;
+          background-color: var(--primary-light);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--primary);
+        }
+
+        .col-title {
+          font-weight: 600;
+          font-size: 14px;
+          color: var(--text-main);
+          padding-right: 12px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .col-author {
+          font-size: 13px;
+          color: var(--text-muted);
+          font-weight: 500;
+          padding-right: 12px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .col-album {
+          font-size: 13px;
+          color: var(--text-muted);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .col-duration {
+          font-size: 13px;
+          color: var(--text-muted);
+          text-align: right;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .col-actions {
+          display: flex;
+          justify-content: flex-end;
+        }
+
+        .action-btn {
+          background: none;
+          border: none;
+          color: var(--text-muted);
+          cursor: pointer;
+          padding: 4px;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .action-btn:hover {
+          color: var(--text-main);
+          background-color: var(--border);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Header Controls -->
+    <div class="list-header-bar">
+        <span class="section-title">Music Files Items</span>
+        <div class="controls-right">
+            <div class="sort-container">
+                <label for="sortSelect">Sort by:</label>
+                <select id="sortSelect" class="sort-select">
+                    <option value="title">Title</option>
+                    <option value="author">Artist / Author</option>
+                    <option value="album">Album</option>
+                    <option value="duration">Duration</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Song List View -->
+    <div class="track-list">
+        <!-- List Header -->
+        <div class="track-row header-row">
+            <div>Cover</div>
+            <div>Title</div>
+            <div>Author</div>
+            <div>Album</div>
+            <div style="text-align: right;">Time</div>
+            <div></div>
+        </div>
+
+        <!-- Item 1 -->
+        <div class="track-row">
+            <img class="col-artwork" src="https://picsum.photos/80/80?random=1" alt="Artwork">
+            <div class="col-title">Midnight City</div>
+            <div class="col-author">M83</div>
+            <div class="col-album">Hurry Up, We're Dreaming</div>
+            <div class="col-duration">04:03</div>
+            <div class="col-actions">
+                <button class="action-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Item 2 -->
+        <div class="track-row">
+            <img class="col-artwork" src="https://picsum.photos/80/80?random=2" alt="Artwork">
+            <div class="col-title">Starboy</div>
+            <div class="col-author">The Weeknd, Daft Punk</div>
+            <div class="col-album">Starboy</div>
+            <div class="col-duration">03:50</div>
+            <div class="col-actions">
+                <button class="action-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Item 3 -->
+        <div class="track-row">
+            <img class="col-artwork" src="https://picsum.photos/80/80?random=3" alt="Artwork">
+            <div class="col-title">Get Lucky</div>
+            <div class="col-author">Daft Punk ft. Pharrell Williams</div>
+            <div class="col-album">Random Access Memories</div>
+            <div class="col-duration">04:08</div>
+            <div class="col-actions">
+                <button class="action-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Item 4 -->
+        <div class="track-row">
+            <img class="col-artwork" src="https://picsum.photos/80/80?random=4" alt="Artwork">
+            <div class="col-title">Resonance</div>
+            <div class="col-author">HOME</div>
+            <div class="col-album">Odyssey</div>
+            <div class="col-duration">03:32</div>
+            <div class="col-actions">
+                <button class="action-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

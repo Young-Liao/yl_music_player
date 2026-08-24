@@ -4,7 +4,12 @@ import '../../navigation/app_router.dart';
 import '../../themes/theme_provider.dart';
 
 class PageSegmentedControl extends StatelessWidget {
-  const PageSegmentedControl({super.key});
+  final bool showLabels;
+
+  const PageSegmentedControl({
+    super.key,
+    this.showLabels = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -15,8 +20,10 @@ class PageSegmentedControl extends StatelessWidget {
       builder: (context, _) {
         final selectedIndex = AppRouter.instance.currentIndex;
 
-        return Container(
-          width: 250.0,
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          width: showLabels ? 250.0 : 88.0,
           height: 38.0,
           padding: const EdgeInsets.all(4.0),
           decoration: BoxDecoration(
@@ -59,6 +66,7 @@ class PageSegmentedControl extends StatelessWidget {
                       label: 'Player',
                       icon: BootstrapIcons.music_note,
                       isSelected: selectedIndex == 0,
+                      showLabel: showLabels,
                       onTap: () => AppRouter.instance.goToPage(0),
                       theme: theme,
                     ),
@@ -68,6 +76,7 @@ class PageSegmentedControl extends StatelessWidget {
                       label: 'File Manager',
                       icon: BootstrapIcons.folder,
                       isSelected: selectedIndex == 1,
+                      showLabel: showLabels,
                       onTap: () => AppRouter.instance.goToPage(1),
                       theme: theme,
                     ),
@@ -86,6 +95,7 @@ class _SegmentTab extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool isSelected;
+  final bool showLabel;
   final VoidCallback onTap;
   final dynamic theme;
 
@@ -93,6 +103,7 @@ class _SegmentTab extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.isSelected,
+    required this.showLabel,
     required this.onTap,
     required this.theme,
   });
@@ -114,16 +125,22 @@ class _SegmentTab extends StatelessWidget {
               size: 14.0,
               color: isSelected ? activeColor : inactiveColor,
             ),
-            const SizedBox(width: 6.0),
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 180),
-              style: TextStyle(
-                fontSize: 13.0,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? activeColor : inactiveColor,
+            if (showLabel) ...[
+              const SizedBox(width: 6.0),
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 180),
+                style: TextStyle(
+                  fontSize: 13.0,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? activeColor : inactiveColor,
+                ),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              child: Text(label),
-            ),
+            ],
           ],
         ),
       ),
