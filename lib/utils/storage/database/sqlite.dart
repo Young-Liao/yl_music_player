@@ -75,7 +75,6 @@ class SQLiteStorage implements IDatabaseStorage {
         title TEXT NOT NULL,
         artist TEXT NOT NULL,
         album TEXT NOT NULL,
-        duration_ms INTEGER NOT NULL
       )
     ''');
   }
@@ -154,7 +153,6 @@ class SQLiteStorage implements IDatabaseStorage {
             'title': item.title,
             'artist': item.artist,
             'album': item.album,
-            'duration_ms': item.duration.inMilliseconds,
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
@@ -172,7 +170,6 @@ class SQLiteStorage implements IDatabaseStorage {
         title: row['title'] as String? ?? '',
         artist: row['artist'] as String? ?? '',
         album: row['album'] as String? ?? '',
-        duration: Duration(milliseconds: row['duration_ms'] as int? ?? 0),
       );
     }).toList();
   }

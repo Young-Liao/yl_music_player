@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:yl_music_player/controllers/song_list/song_list_managers.dart';
 
 enum FileListSortOption {
-  duration('Duration'),
   title('Title'),
   author('Author'),
   album('Album');
@@ -15,7 +14,7 @@ enum FileListSortOption {
 class FileListManager extends SongListManager {
   FileListManager({required super.db, super.maxCacheSize = 250});
 
-  FileListSortOption _currentSort = FileListSortOption.duration;
+  FileListSortOption _currentSort = FileListSortOption.title;
   FileListSortOption get currentSort => _currentSort;
 
   Timer? _debounceTimer;
@@ -48,8 +47,6 @@ class FileListManager extends SongListManager {
       final metaB = getCachedMetadataAtIndex(privateSongPaths.indexOf(pathB));
 
       switch (_currentSort) {
-        case FileListSortOption.duration:
-          return metaA.duration.compareTo(metaB.duration);
         case FileListSortOption.title:
           return metaA.title.toLowerCase().compareTo(metaB.title.toLowerCase());
         case FileListSortOption.author:

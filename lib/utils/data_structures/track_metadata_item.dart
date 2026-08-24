@@ -10,7 +10,6 @@ class TrackMetadataItem {
   final String title;
   final String artist;
   final String album;
-  final Duration duration;
   final Uint8List? compressedArtwork;
 
   TrackMetadataItem({
@@ -18,7 +17,6 @@ class TrackMetadataItem {
     required this.title,
     required this.artist,
     this.album = '',
-    this.duration = Duration.zero,
     this.compressedArtwork,
   });
 
@@ -29,7 +27,6 @@ class TrackMetadataItem {
       title: "Waiting for a song...",
       artist: "...",
       album: "",
-      duration: Duration.zero,
       compressedArtwork: null,
     );
   }
@@ -41,7 +38,6 @@ class TrackMetadataItem {
       title: "",
       artist: "",
       album: "",
-      duration: Duration.zero,
     );
   }
 
@@ -57,7 +53,6 @@ class TrackMetadataItem {
       title: cleanTitle,
       artist: 'Unknown Artist',
       album: 'Unknown Album',
-      duration: Duration.zero,
       compressedArtwork: null,
     );
   }
@@ -88,7 +83,6 @@ class TrackMetadataItem {
         title: title,
         artist: artist,
         album: album,
-        duration: duration,
         compressedArtwork: compressedArtwork,
       );
     } catch (e) {
@@ -103,23 +97,10 @@ class TrackMetadataItem {
       title: json['title'] as String? ?? '',
       artist: json['artist'] as String? ?? '',
       album: json['album'] as String? ?? '',
-      duration: Duration(milliseconds: json['durationMs'] as int? ?? 0),
       compressedArtwork: json['compressedArtwork'] != null
           ? Uint8List.fromList(List<int>.from(json['compressedArtwork']))
           : null,
     );
-  }
-
-  /// Convert TrackMetadataItem to JSON map
-  Map<String, dynamic> toJson() {
-    return {
-      'filePath': filePath,
-      'title': title,
-      'artist': artist,
-      'album': album,
-      'durationMs': duration.inMilliseconds,
-      'compressedArtwork': compressedArtwork?.toList(),
-    };
   }
 
   /// Downscales high-resolution cover images to a thumbnail target width using Flutter UI codecs.
