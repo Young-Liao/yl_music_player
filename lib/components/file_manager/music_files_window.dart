@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import '../../controllers/audio/audio_player_controller.dart';
 import '../../controllers/song_list/file_list_manager.dart';
+import '../../pages/lan_transfer_dialog.dart';
 import '../../themes/theme_provider.dart';
 import '../../utils/file/file_picker.dart';
 import 'file_list_view.dart';
@@ -37,6 +38,13 @@ class MusicFilesWindowState extends State<MusicFilesWindow> {
   late final ScrollController _scrollController;
   final Set<int> selectedIndices = {};
 
+  // 1. Add a local state to track LAN Transfer selection mode
+  bool _isLanTransferSelection = false;
+
+  // Helper to determine if ANY selection mode is currently active
+  bool get _activeSelectionMode =>
+      widget.isSelectionMode || _isLanTransferSelection;
+
   @override
   void initState() {
     super.initState();
@@ -53,6 +61,7 @@ class MusicFilesWindowState extends State<MusicFilesWindow> {
   void clearSelection() {
     setState(() {
       selectedIndices.clear();
+      _isLanTransferSelection = false;
     });
   }
 
@@ -65,7 +74,6 @@ class MusicFilesWindowState extends State<MusicFilesWindow> {
         final metadata = await widget.fileListManager.extractMetadata(path);
         widget.fileListManager.putToCache(path, metadata);
       }
-
       widget.fileListManager.addFileAt(path, 0);
     }
 
@@ -114,19 +122,48 @@ class MusicFilesWindowState extends State<MusicFilesWindow> {
               return Row(
                 children: [
                   _ActionButton(
-                    icon: widget.isSelectionMode
+                    icon: _activeSelectionMode
                         ? BootstrapIcons.x_circle
                         : BootstrapIcons.check2_square,
-                    label: widget.isSelectionMode ? 'Cancel' : 'Select',
+                    label: _activeSelectionMode ? 'Cancel' : 'Select',
                     showLabel: !isCompact,
-                    onPressed: widget.onToggleSelectionMode,
+                    onPressed: () {
+                      // 2. Handle cancellation for both modes independently
+                      if (_isLanTransferSelection) {
+                        setState(() {
+                          _isLanTransferSelection = false;
+                          selectedIndices.clear();
+                        });
+                      } else {
+                        widget.onToggleSelectionMode();
+                      }
+                    },
                     theme: theme,
                   ),
-                  if (widget.isSelectionMode) ...[
+                  if (_activeSelectionMode) ...[
                     const SizedBox(width: 8.0),
-                    if (widget.isSubjectiveSelection)
+                    if (widget.isSubjectiveSelection || _isLanTransferSelection)
                       ElevatedButton.icon(
-                        onPressed: widget.onConfirmSubjectiveSelection,
+                        // 3. Handle OK button for LAN Transfer
+                        onPressed: selectedIndices.isEmpty
+                            ? null
+                            : () {
+                          if (_isLanTransferSelection) {
+                            // Map indices to actual file paths (Update the property name based on your FileListManager)
+                            final selectedPaths = selectedIndices
+                                .map((i) => widget.fileListManager.songPaths[i])
+                                .toList();
+
+                            // Show Dialog & Reset state
+                            LanTransferDialog.show(context, selectedPaths);
+                            setState(() {
+                              _isLanTransferSelection = false;
+                              selectedIndices.clear();
+                            });
+                          } else {
+                            widget.onConfirmSubjectiveSelection();
+                          }
+                        },
                         icon: const Icon(BootstrapIcons.check_lg, size: 14.0),
                         label: Text(
                           isCompact
@@ -172,7 +209,7 @@ class MusicFilesWindowState extends State<MusicFilesWindow> {
                       ),
                   ],
                   const Spacer(),
-                  if (!widget.isSelectionMode) ...[
+                  if (!_activeSelectionMode) ...[
                     _ActionButton(
                       icon: BootstrapIcons.grid,
                       label: 'Icon View',
@@ -185,7 +222,13 @@ class MusicFilesWindowState extends State<MusicFilesWindow> {
                       icon: BootstrapIcons.display,
                       label: 'LAN Transfer',
                       showLabel: !isCompact,
-                      onPressed: () {},
+                      onPressed: () {
+                        // 4. Trigger LAN Transfer selection mode
+                        setState(() {
+                          _isLanTransferSelection = true;
+                          selectedIndices.clear();
+                        });
+                      },
                       theme: theme,
                     ),
                     const SizedBox(width: 8.0),
@@ -222,7 +265,8 @@ class MusicFilesWindowState extends State<MusicFilesWindow> {
               audioController: widget.audioController,
               onPlayTrack: widget.onPlayTrack,
               scrollController: _scrollController,
-              isSelectionMode: widget.isSelectionMode,
+              // 5. Pass the unified selection state down to the list
+              isSelectionMode: _activeSelectionMode,
               selectedIndices: selectedIndices,
               onToggleSelect: _toggleSelectIndex,
             ),

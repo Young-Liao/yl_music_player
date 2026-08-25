@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:metadata_god/metadata_god.dart';
 import 'package:yl_music_player/components/player/playback_controls.dart';
 import 'package:yl_music_player/controllers/audio/audio_player_controller.dart';
+import 'package:yl_music_player/controllers/network/lan_transfer_controller.dart';
 import 'package:yl_music_player/controllers/song_list/file_list_manager.dart';
 import 'package:yl_music_player/navigation/app_router.dart';
 import 'package:yl_music_player/pages/file_manager_page.dart';
@@ -26,6 +27,7 @@ final AudioPlayerController audioPlayerController = AudioPlayerController();
 final playlistManager = PlaylistManager(db: dbStorage);
 final lyricsHandler = LyricsHandler();
 final fileListManager = FileListManager(db: dbStorage);
+final transferController = LanTransferController();
 
 final playbackControlKey = GlobalKey<PlaybackControlsState>();
 

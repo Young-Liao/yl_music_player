@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:yl_music_player/main.dart';
 import 'package:yl_music_player/navigation/app_router.dart';
@@ -14,6 +15,7 @@ import '../components/window/header_bar.dart';
 import '../controllers/audio/audio_player_controller.dart';
 import '../controllers/song_list/file_list_manager.dart';
 import '../themes/theme_provider.dart';
+import 'lan_receive_dialog.dart';
 
 final fileManagerPageKey =
 GlobalKey<_FileManagerPageState>();
@@ -39,6 +41,30 @@ class _FileManagerPageState extends State<FileManagerPage> {
   Completer<List<String>>? _selectionCompleter;
   bool _isSelectionMode = false;
   bool _isSubjectiveSelection = false;
+
+
+  @override
+  void initState() {
+    super.initState();
+    transferController.onReceiveRequest =
+        (sender, fileName, fileSize, rawBytes) async {
+      final accepted = await LanReceiveDialog.show(
+        context,
+        sender: sender,
+        fileName: fileName,
+        fileSize: fileSize,
+      );
+
+      if (accepted == true) {
+        final directory = await getApplicationDocumentsDirectory();
+        final file = File('${directory.path}/$fileName');
+        await file.writeAsBytes(rawBytes);
+
+        // TODO: Add file path to fileListManager
+      }
+    };
+    transferController.startService(deviceName: "Young's Mac");
+  }
 
   void _handleSelectIndex(int index) {
     setState(() {

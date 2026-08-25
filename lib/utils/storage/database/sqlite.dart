@@ -74,7 +74,7 @@ class SQLiteStorage implements IDatabaseStorage {
         file_path TEXT PRIMARY KEY,
         title TEXT NOT NULL,
         artist TEXT NOT NULL,
-        album TEXT NOT NULL,
+        album TEXT NOT NULL
       )
     ''');
   }

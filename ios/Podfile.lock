@@ -15,6 +15,8 @@ PODS:
     - FlutterMacOS
   - metadata_god (0.0.1):
     - Flutter
+  - nsd_ios (0.0.1):
+    - Flutter
   - sqflite_darwin (0.0.4):
     - Flutter
     - FlutterMacOS
@@ -27,6 +29,7 @@ DEPENDENCIES:
   - Flutter (from `Flutter`)
   - just_audio (from `.symlinks/plugins/just_audio/darwin`)
   - metadata_god (from `.symlinks/plugins/metadata_god/ios`)
+  - nsd_ios (from `.symlinks/plugins/nsd_ios/ios`)
   - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
 
 EXTERNAL SOURCES:
@@ -44,6 +47,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/just_audio/darwin"
   metadata_god:
     :path: ".symlinks/plugins/metadata_god/ios"
+  nsd_ios:
+    :path: ".symlinks/plugins/nsd_ios/ios"
   sqflite_darwin:
     :path: ".symlinks/plugins/sqflite_darwin/darwin"
 
@@ -55,6 +60,7 @@ SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
   metadata_god: 018b59c2f3617569928550dcbd17481591557c1d
+  nsd_ios: d2eedc5904efa30a0e36d42f2501a39fd7fbe73f
   sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
 
 PODFILE CHECKSUM: 8c4d30c2258325612f2b7276ac7aac1f617fcf63

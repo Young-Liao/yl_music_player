@@ -63,5 +63,12 @@
                 <string>Alternate</string>
             </dict>
         </array>
+
+        <key>NSLocalNetworkUsageDescription</key>
+        <string>Required to discover nearby devices for music transfer.</string>
+        <key>NSBonjourServices</key>
+        <array>
+            <string>_mp-transfer._tcp</string>
+        </array>
     </dict>
 </plist>
