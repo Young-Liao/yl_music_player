@@ -68,13 +68,13 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
     audioController.lyricsHandler = lyricsHandler;
     playlistManager
         .loadListFromDb(
-      onSongReady: (filePath) async {
-        await loadSong(TrackMetadataItem.onlyPath(filePath));
-        debugPrint(
-          "Successfully loaded song at index ${playlistManager.currentIndex}: $filePath",
-        );
-      },
-    )
+          onSongReady: (filePath) async {
+            await loadSong(TrackMetadataItem.onlyPath(filePath));
+            debugPrint(
+              "Successfully loaded song at index ${playlistManager.currentIndex}: $filePath",
+            );
+          },
+        )
         .then((_) => LinkService.instance.releaseCache());
   }
 
@@ -179,7 +179,13 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
         if (isWide) {
           return Column(
             children: [
-              const HeaderBar(),
+              HeaderBar(
+                onTransferServiceChanged: (value) {
+                  if (mounted) {
+                    setState(() {});
+                  }
+                },
+              ),
               const SizedBox(height: 16),
               Expanded(
                 child: Row(
@@ -204,7 +210,13 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
           return Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const HeaderBar(),
+              HeaderBar(
+                onTransferServiceChanged: (value) {
+                  if (mounted) {
+                    setState(() {});
+                  }
+                },
+              ),
               Expanded(child: _buildMetadataAndLyricsSwitcher()),
               _buildControlsSection(),
             ],
@@ -225,10 +237,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: 32,
-                vertical: 24,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: 32, vertical: 24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -236,10 +245,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
                   SizedBox(height: 12),
                   Text(
                     'Drop audio files to play',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -258,16 +264,14 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
         final theme = CustomThemeProvider.of(context);
         final isDesktop =
             !kIsWeb &&
-                (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+            (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
         return DropTarget(
           onDragEntered: (_) => setState(() => _isDragging = true),
           onDragExited: (_) => setState(() => _isDragging = false),
           onDragDone: (details) {
             setState(() => _isDragging = false);
-            final paths = details.files
-                .map((XFile file) => file.path)
-                .toList();
+            final paths = details.files.map((XFile file) => file.path).toList();
             _handleIncomingFiles(paths);
           },
           child: Scaffold(

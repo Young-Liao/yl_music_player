@@ -121,4 +121,18 @@ class TrackMetadataItem {
       return rawBytes;
     }
   }
+
+  /// Returns the file size in bytes synchronously using [File].
+  /// Returns 0 if the file does not exist or if an IO error occurs.
+  int getFileSize() {
+    try {
+      final file = File(filePath);
+      if (file.existsSync()) {
+        return file.lengthSync();
+      }
+    } catch (e) {
+      rethrow;
+    }
+    return 0;
+  }
 }

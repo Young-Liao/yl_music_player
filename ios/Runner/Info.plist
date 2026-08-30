@@ -82,5 +82,8 @@
         <array>
             <string>_mp-transfer._tcp</string>
         </array>
+
+        <key>NSDeviceNameAccessUsageDescription</key>
+        <string>We need your device name to access music transfer.</string>
     </dict>
 </plist>

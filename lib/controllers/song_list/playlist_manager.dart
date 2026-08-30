@@ -1,9 +1,10 @@
+import 'dart:async';
 import 'package:yl_music_player/controllers/song_list/song_list_managers.dart';
 
 import '../../utils/data_structures/track_metadata_item.dart';
 import '../../utils/storage/settings.dart';
 
-/// Specialized Manager handling queue state, currently playing pointers, and playback operations.
+/// Manages active playback queue, persisted to `current_playlist` table.
 class PlaylistManager extends SongListManager {
   int _currentIndex = 0;
 
@@ -17,11 +18,22 @@ class PlaylistManager extends SongListManager {
   Future<void> loadListFromDb({
     Future<void> Function(String filePath)? onSongReady,
   }) async {
-    await super.loadListFromDb();
+    if (db == null) return;
+
+    final loadedPaths = await db!.loadPlaylist();
+    privateSongPaths.clear();
+    privateSongPaths.addAll(loadedPaths);
+
     if (songPaths.isNotEmpty && onSongReady != null) {
       final currentPath = songPaths[_currentIndex.clamp(0, songPaths.length - 1)];
       onSongReady(currentPath);
     }
+  }
+
+  @override
+  Future<void> saveListToDb() async {
+    if (db == null) return;
+    await db!.savePlaylist(privateSongPaths);
   }
 
   void saveCurrentIndex() =>
@@ -70,6 +82,7 @@ class PlaylistManager extends SongListManager {
   Future<void> addFileNextToCurrent(String filePath) async {
     final targetIndex = songPaths.isEmpty ? 0 : _currentIndex + 1;
     await addFileAt(filePath, targetIndex);
+    await saveListToDb();
   }
 
   @override
@@ -89,6 +102,7 @@ class PlaylistManager extends SongListManager {
     }
 
     saveCurrentIndex();
+    await saveListToDb();
     return isCurrent;
   }
 
@@ -107,6 +121,7 @@ class PlaylistManager extends SongListManager {
     }
 
     saveCurrentIndex();
+    await saveListToDb();
   }
 
   Future<void> shufflePlaylist() async {
@@ -126,3 +141,4 @@ class PlaylistManager extends SongListManager {
     saveCurrentIndex();
   }
 }
+

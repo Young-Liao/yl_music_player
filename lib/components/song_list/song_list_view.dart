@@ -140,7 +140,12 @@ class SongListViewState extends State<SongListView> {
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 10.0),
                     child: buildTrackTile(
-                        context, theme, track, index, isActive),
+                      context,
+                      theme,
+                      track,
+                      index,
+                      isActive,
+                    ),
                   ),
                 );
               },
@@ -162,7 +167,6 @@ class SongListViewState extends State<SongListView> {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(theme.cardCornerRadius - 4),
-      // Disable slidable actions when in batch selection mode
       child: Slidable(
         enabled: !widget.isSelectionMode,
         endActionPane: ActionPane(
@@ -179,7 +183,11 @@ class SongListViewState extends State<SongListView> {
                   children: [
                     Icon(Icons.playlist_add_rounded, size: 22),
                     SizedBox(height: 2),
-                    Text('Next', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                    Text(
+                      'Next',
+                      style:
+                      TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                    ),
                   ],
                 ),
               ),
@@ -193,7 +201,11 @@ class SongListViewState extends State<SongListView> {
                   children: [
                     Icon(Icons.delete_outline_rounded, size: 22),
                     SizedBox(height: 2),
-                    Text('Remove', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                    Text(
+                      'Remove',
+                      style:
+                      TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                    ),
                   ],
                 ),
               ),
@@ -210,7 +222,8 @@ class SongListViewState extends State<SongListView> {
               }
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: isSelected
                     ? theme.primaryColor.withValues(alpha: 0.15)
@@ -220,17 +233,18 @@ class SongListViewState extends State<SongListView> {
               ),
               child: Row(
                 children: [
-                  // Show Checkbox if in selection mode, else show artwork
                   if (widget.isSelectionMode) ...[
                     Checkbox(
                       value: isSelected,
                       activeColor: theme.primaryColor,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                       onChanged: (_) => widget.onToggleSelect?.call(index),
                     ),
                     const SizedBox(width: 8),
                   ],
-                  buildTrackArtwork(theme, track),
+                  TrackArtworkWidget(theme: theme, track: track),
                   const SizedBox(width: 12),
                   Expanded(child: buildTrackInfo(theme, track, isActive)),
                   if (isActive && !widget.isSelectionMode) ...[
@@ -254,44 +268,6 @@ class SongListViewState extends State<SongListView> {
                 ],
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget buildTrackArtwork(IAppTheme theme, TrackMetadataItem track) {
-    final artworkBytes = track.compressedArtwork;
-    const artworkSize = 22.0;
-    const borderRadius = 8.0;
-
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: theme.primaryColor.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(borderRadius),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          switchInCurve: Curves.easeIn,
-          switchOutCurve: Curves.easeOut,
-          child: artworkBytes == null
-              ? Icon(
-            Icons.music_note_rounded,
-            key: const ValueKey('placeholder_icon'),
-            color: theme.primaryColor,
-            size: artworkSize,
-          )
-              : Image.memory(
-            artworkBytes,
-            key: ValueKey(track.filePath),
-            gaplessPlayback: true,
-            fit: BoxFit.cover,
-            width: 44,
-            height: 44,
           ),
         ),
       ),
@@ -328,6 +304,56 @@ class SongListViewState extends State<SongListView> {
           overflow: TextOverflow.ellipsis,
         ),
       ],
+    );
+  }
+}
+
+class TrackArtworkWidget extends StatelessWidget {
+  final IAppTheme theme;
+  final TrackMetadataItem track;
+
+  const TrackArtworkWidget({
+    super.key,
+    required this.theme,
+    required this.track,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final artworkBytes = track.compressedArtwork;
+    const artworkSize = 22.0;
+    const borderRadius = 8.0;
+
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: theme.primaryColor.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(borderRadius),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          switchInCurve: Curves.easeIn,
+          switchOutCurve: Curves.easeOut,
+          child: artworkBytes == null
+              ? Icon(
+            Icons.music_note_rounded,
+            key: const ValueKey('placeholder_icon'),
+            color: theme.primaryColor,
+            size: artworkSize,
+          )
+              : Image.memory(
+            artworkBytes,
+            key: ValueKey(track.filePath),
+            gaplessPlayback: true,
+            fit: BoxFit.cover,
+            width: 44,
+            height: 44,
+          ),
+        ),
+      ),
     );
   }
 }

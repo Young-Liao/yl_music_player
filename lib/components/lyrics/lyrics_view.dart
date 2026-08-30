@@ -27,9 +27,7 @@ class LyricsView extends StatefulWidget {
 
 class _LyricsViewState extends State<LyricsView> {
   final ScrollController _scrollController = ScrollController();
-
-  /// Fixed line height enabling fast $O(1)$ index calculation from scroll offset.
-  static const double _itemHeight = 46.0;
+  final Map<int, GlobalKey> _itemKeys = {};
 
   List<int> _lastActiveIndices = [];
   bool _isUserScrolling = false;
@@ -53,14 +51,12 @@ class _LyricsViewState extends State<LyricsView> {
   @override
   void didUpdateWidget(LyricsView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Strict guard: Do NOT trigger auto-scroll if user is dragging or scrolling
     if (oldWidget.currentPosition != widget.currentPosition &&
         !_isUserScrolling) {
       _checkAndScroll();
     }
   }
 
-  /// Calculates current active lyric line indices and schedules centering animation
   void _checkAndScroll() {
     if (_isUserScrolling) return;
 
@@ -77,27 +73,23 @@ class _LyricsViewState extends State<LyricsView> {
     });
   }
 
-  /// Centers the requested lyric index within the ListView viewport
+  /// Centers the requested lyric index by retrieving its dynamic RenderBox context
   void _scrollToActiveLine(int primaryIndex, {bool withAnimate = true}) {
     if (!_scrollController.hasClients || _isUserScrolling) return;
 
-    final targetOffset = primaryIndex * _itemHeight;
-
-    if (withAnimate) {
-      _scrollController
-          .animateTo(
-            targetOffset,
-            duration: const Duration(milliseconds: 350),
-            curve: Curves.easeOutCubic,
-          )
-          .whenComplete(() {});
-    } else {
-      _scrollController.jumpTo(targetOffset);
-      // Reset on the next microtask/frame for jumpTo
+    final key = _itemKeys[primaryIndex];
+    if (key?.currentContext != null) {
+      Scrollable.ensureVisible(
+        key!.currentContext!,
+        alignment: 0.5,
+        duration: withAnimate
+            ? const Duration(milliseconds: 350)
+            : Duration.zero,
+        curve: Curves.easeOutCubic,
+      );
     }
   }
 
-  /// Fires on every sub-pixel frame of scroll movement
   void _onScroll() {
     if (!_isUserScrolling) return;
 
@@ -105,10 +97,8 @@ class _LyricsViewState extends State<LyricsView> {
     _updateHoveredIndex();
   }
 
-  /// Listens to low-level scroll notifications across drag, fling, and wheel events
   bool _handleScrollNotification(ScrollNotification notification) {
     if (notification is ScrollStartNotification) {
-      // dragDetails is non-null ONLY when triggered by human input (touch, drag)
       if (notification.dragDetails != null) {
         _isUserScrolling = true;
         _inactivityTimer?.cancel();
@@ -116,7 +106,6 @@ class _LyricsViewState extends State<LyricsView> {
         _updateHoveredIndex();
       }
     } else if (notification is ScrollUpdateNotification) {
-      // Mouse wheel or trackpad updates supply dragDetails or scrollDelta from user pointer
       if (notification.dragDetails != null) {
         if (!_isUserScrolling) {
           setState(() => _isUserScrolling = true);
@@ -125,7 +114,6 @@ class _LyricsViewState extends State<LyricsView> {
         _updateHoveredIndex();
       }
     } else if (notification is UserScrollNotification) {
-      // Fires explicitly on user gesture direction shifts (ScrollDirection.forward/reverse)
       if (notification.direction != ScrollDirection.idle) {
         if (!_isUserScrolling) {
           setState(() => _isUserScrolling = true);
@@ -136,7 +124,6 @@ class _LyricsViewState extends State<LyricsView> {
     return false;
   }
 
-  /// Resets 2.5s inactivity timeout before restoring programmatic auto-scrolling
   void _resetInactivityTimer() {
     _inactivityTimer?.cancel();
     _inactivityTimer = Timer(const Duration(milliseconds: 2500), () {
@@ -149,20 +136,30 @@ class _LyricsViewState extends State<LyricsView> {
     });
   }
 
-  /// Computes the hovered index at the horizontal center in $O(1)$ time
   void _updateHoveredIndex() {
     if (!_scrollController.hasClients) return;
 
-    final double centerOffset = _scrollController.offset;
-    final int calculatedIndex = (centerOffset / _itemHeight).round();
-    final int clampedIndex = calculatedIndex.clamp(
-      0,
-      widget.lyricsHandler.lines.length - 1,
-    );
+    int closestIndex = 0;
+    double minDistance = double.infinity;
 
-    if (clampedIndex != _hoveredIndex) {
+    _itemKeys.forEach((index, key) {
+      final context = key.currentContext;
+      if (context != null) {
+        final renderBox = context.findRenderObject() as RenderBox?;
+        if (renderBox != null) {
+          final position = renderBox.localToGlobal(Offset.zero);
+          final distance = (position.dy - (MediaQuery.of(context).size.height / 2)).abs();
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestIndex = index;
+          }
+        }
+      }
+    });
+
+    if (closestIndex != _hoveredIndex) {
       setState(() {
-        _hoveredIndex = clampedIndex;
+        _hoveredIndex = closestIndex;
       });
     }
   }
@@ -187,7 +184,6 @@ class _LyricsViewState extends State<LyricsView> {
 
     final activeIndices = handler.getCurrentIndices(widget.currentPosition);
 
-    // Sync line jumps when crossing line bounds during active playback
     if (activeIndices.isNotEmpty &&
         activeIndices != _lastActiveIndices &&
         !_isUserScrolling) {
@@ -216,9 +212,8 @@ class _LyricsViewState extends State<LyricsView> {
                 child: ListView.builder(
                   controller: _scrollController,
                   physics: const BouncingScrollPhysics(),
-                  itemExtent: _itemHeight,
                   padding: EdgeInsets.symmetric(
-                    vertical: verticalPadding - (_itemHeight / 2),
+                    vertical: verticalPadding,
                     horizontal: 24.0,
                   ),
                   itemCount: handler.lines.length,
@@ -226,7 +221,11 @@ class _LyricsViewState extends State<LyricsView> {
                     final line = handler.lines[index];
                     final isActive = activeIndices.contains(index);
 
+                    final key = _itemKeys.putIfAbsent(index, () => GlobalKey());
+
                     return Container(
+                      key: key,
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
                       alignment: Alignment.center,
                       child: AnimatedDefaultTextStyle(
                         duration: const Duration(milliseconds: 250),
@@ -239,13 +238,13 @@ class _LyricsViewState extends State<LyricsView> {
                           color: isActive
                               ? theme.primaryColor
                               : theme.textSecondary.withValues(alpha: 0.4),
-                          height: 1.3,
+                          height: 1.4,
                         ),
                         child: Text(
                           line.text.isEmpty ? '♪' : line.text,
                           textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
+                          maxLines: null,
                         ),
                       ),
                     );
@@ -253,7 +252,6 @@ class _LyricsViewState extends State<LyricsView> {
                 ),
               ),
             ),
-            // Floating target overlay visible when manual scrolling is active
             if (_isUserScrolling &&
                 _hoveredIndex >= 0 &&
                 _hoveredIndex < handler.lines.length)
@@ -264,7 +262,6 @@ class _LyricsViewState extends State<LyricsView> {
     );
   }
 
-  /// Builds the center seek target overlay with timestamp and seek trigger
   Widget _buildTargetOverlay(IAppTheme theme, LyricsHandler handler) {
     final hoveredLine = handler.lines[_hoveredIndex];
     final lineTimestamp = hoveredLine.timestamp;
@@ -272,11 +269,10 @@ class _LyricsViewState extends State<LyricsView> {
     return IgnorePointer(
       ignoring: false,
       child: Container(
-        height: _itemHeight,
+        height: 46.0,
         padding: const EdgeInsets.symmetric(horizontal: 8.0),
         child: Row(
           children: [
-            // Timestamp Badge
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
@@ -293,7 +289,6 @@ class _LyricsViewState extends State<LyricsView> {
               ),
             ),
             const SizedBox(width: 8),
-            // Center Dotted Guide Line
             Expanded(
               child: CustomPaint(
                 painter: DottedLinePainter(
@@ -302,7 +297,6 @@ class _LyricsViewState extends State<LyricsView> {
               ),
             ),
             const SizedBox(width: 8),
-            // Seek Action Button
             IconButton(
               icon: Icon(
                 Icons.play_circle_fill,

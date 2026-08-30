@@ -1,12 +1,11 @@
 import 'dart:async';
 import 'dart:io';
+
+import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:bootstrap_icons/bootstrap_icons.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:yl_music_player/main.dart';
-import 'package:yl_music_player/navigation/app_router.dart';
+
 import '../components/file_manager/groups_window.dart';
 import '../components/file_manager/library_sidebar.dart';
 import '../components/file_manager/music_files_window.dart';
@@ -14,11 +13,11 @@ import '../components/file_manager/playlists_window.dart';
 import '../components/window/header_bar.dart';
 import '../controllers/audio/audio_player_controller.dart';
 import '../controllers/song_list/file_list_manager.dart';
+import '../main.dart';
+import '../navigation/app_router.dart';
 import '../themes/theme_provider.dart';
-import 'lan_receive_dialog.dart';
 
-final fileManagerPageKey =
-GlobalKey<_FileManagerPageState>();
+final fileManagerPageKey = GlobalKey<_FileManagerPageState>();
 
 class FileManagerPage extends StatefulWidget {
   final AudioPlayerController audioController;
@@ -42,28 +41,9 @@ class _FileManagerPageState extends State<FileManagerPage> {
   bool _isSelectionMode = false;
   bool _isSubjectiveSelection = false;
 
-
   @override
   void initState() {
     super.initState();
-    transferController.onReceiveRequest =
-        (sender, fileName, fileSize, rawBytes) async {
-      final accepted = await LanReceiveDialog.show(
-        context,
-        sender: sender,
-        fileName: fileName,
-        fileSize: fileSize,
-      );
-
-      if (accepted == true) {
-        final directory = await getApplicationDocumentsDirectory();
-        final file = File('${directory.path}/$fileName');
-        await file.writeAsBytes(rawBytes);
-
-        // TODO: Add file path to fileListManager
-      }
-    };
-    transferController.startService(deviceName: "Young's Mac");
   }
 
   void _handleSelectIndex(int index) {
@@ -174,12 +154,18 @@ class _FileManagerPageState extends State<FileManagerPage> {
 
                     return Column(
                       children: [
-                        const Padding(
-                          padding: EdgeInsets.symmetric(
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
                             horizontal: 24.0,
                             vertical: 8.0,
                           ),
-                          child: HeaderBar(),
+                          child: HeaderBar(
+                            onTransferServiceChanged: (value) {
+                              if (mounted) {
+                                setState(() {});
+                              }
+                            },
+                          ),
                         ),
                         Divider(
                           height: 1,

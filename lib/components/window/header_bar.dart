@@ -2,12 +2,48 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:yl_music_player/components/window/page_segmented_control.dart';
-import '../../controllers/themes/theme_controller.dart';
-import '../../themes/theme_provider.dart';
 
-class HeaderBar extends StatelessWidget {
-  const HeaderBar({super.key});
+import '../../controllers/themes/theme_controller.dart';
+import '../../main.dart'; // Reference to global lanTransferController and getDeviceName()
+import '../../themes/theme_provider.dart';
+import '../window/page_segmented_control.dart';
+
+class HeaderBar extends StatefulWidget {
+  final ValueChanged<bool>? onTransferServiceChanged;
+
+  const HeaderBar({
+    super.key,
+    this.onTransferServiceChanged,
+  });
+
+  @override
+  State<HeaderBar> createState() => _HeaderBarState();
+}
+
+class _HeaderBarState extends State<HeaderBar> {
+  Future<void> _toggleTransferService(bool enabled) async {
+    setState(() {
+      isTransferEnabled = enabled;
+    });
+
+    if (enabled) {
+      await lanTransferController.initService();
+    } else {
+      await lanTransferController.stopService();
+    }
+
+    widget.onTransferServiceChanged?.call(enabled);
+  }
+
+  @override
+  void dispose() {
+    // Ensure the service is stopped when the widget/window closes
+    if (isTransferEnabled) {
+      lanTransferController.stopService();
+      widget.onTransferServiceChanged?.call(false);
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,11 +108,44 @@ class HeaderBar extends StatelessWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
+                        // --- LAN File Transfer Switcher ---
+                        Tooltip(
+                          message: isTransferEnabled
+                              ? 'LAN Transfer Enabled'
+                              : 'Enable LAN Transfer',
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.sync_alt_rounded,
+                                size: 18,
+                                color: isTransferEnabled
+                                    ? theme.primaryColor
+                                    : theme.textSecondary.withValues(alpha: 0.5),
+                              ),
+                              const SizedBox(width: 4),
+                              Transform.scale(
+                                scale: 0.75,
+                                child: Switch(
+                                  value: isTransferEnabled,
+                                  activeTrackColor: theme.primaryColor,
+                                  onChanged: _toggleTransferService,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(width: 4.0),
+
+                        // Theme Toggle Button
                         IconButton(
                           onPressed: ThemeController.instance.toggleTheme,
                           icon: theme.themeIcon,
                           splashRadius: 20,
                         ),
+
+                        // Desktop Window Control Buttons
                         if (isWindowsOrLinux) ...[
                           const SizedBox(width: 4.0),
                           _WindowButtons(theme: theme),

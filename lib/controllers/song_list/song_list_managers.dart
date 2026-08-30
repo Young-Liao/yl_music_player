@@ -5,7 +5,7 @@ import '../../utils/storage/database/interface.dart';
 
 /// Base manager handling song collection, LRU caching, and dynamic scroll window prefetching.
 class SongListManager {
-  final IDatabaseStorage db;
+  final IDatabaseStorage? db;
   final int maxCacheSize;
 
   List<String> privateSongPaths = [];
@@ -15,7 +15,7 @@ class SongListManager {
   final LinkedHashMap<String, TrackMetadataItem> lruCache =
   LinkedHashMap<String, TrackMetadataItem>();
 
-  SongListManager({required this.db, this.maxCacheSize = 250});
+  SongListManager({this.db, this.maxCacheSize = 250});
 
   // Getters
   int get length => privateSongPaths.length;
@@ -23,8 +23,9 @@ class SongListManager {
 
   // Persistence
   Future<void> loadListFromDb() async {
-    privateSongPaths = await db.loadPlaylist();
-    final cachedData = await db.loadAllCachedMetadata();
+    if (db == null) return;
+    privateSongPaths = await db!.loadPlaylist();
+    final cachedData = await db!.loadAllCachedMetadata();
     cachedData.forEach((path, metadata) {
       if (privateSongPaths.contains(path)) {
         putToCache(path, metadata);
@@ -33,7 +34,8 @@ class SongListManager {
   }
 
   Future<void> saveListToDb() async {
-    await db.savePlaylist(privateSongPaths);
+    if (db == null) return;
+    await db!.savePlaylist(privateSongPaths);
   }
 
   // LRU Caching
@@ -60,7 +62,7 @@ class SongListManager {
       lruCache.remove(keyToEvict);
     }
     lruCache[path] = metadata;
-    db.saveCachedMetadata(metadata);
+    db?.saveCachedMetadata(metadata);
   }
 
   Future<TrackMetadataItem> extractMetadata(String filePath) async {
@@ -107,6 +109,10 @@ class SongListManager {
     }
     final path = privateSongPaths[index];
     return peekCache(path) ?? TrackMetadataItem.fallback(path);
+  }
+
+  TrackMetadataItem getCachedMetadataForPath(String filePath) {
+    return peekCache(filePath) ?? TrackMetadataItem.fallback(filePath);
   }
 
   // Generic List Operations
@@ -168,5 +174,32 @@ class SongListManager {
       }
     }
     return matches;
+  }
+
+  /// Inspects the window range [windowL, windowR]. If any items lack cached
+  /// metadata, parses them asynchronously and returns true to trigger a rebuild.
+  Future<bool> ensureWindowCached(int windowL, int windowR) async {
+    if (privateSongPaths.isEmpty) return false;
+
+    final start = windowL.clamp(0, privateSongPaths.length - 1);
+    final end = windowR.clamp(0, privateSongPaths.length - 1);
+
+    final missingPaths = <String>[];
+    for (int i = start; i <= end; i++) {
+      final path = privateSongPaths[i];
+      if (peekCache(path) == null) {
+        missingPaths.add(path);
+      }
+    }
+
+    if (missingPaths.isEmpty) return false;
+
+    // Extract missing metadata asynchronously
+    for (final path in missingPaths) {
+      final metadata = await extractMetadata(path);
+      putToCache(path, metadata);
+    }
+
+    return true; // Signals that new cache data is available
   }
 }

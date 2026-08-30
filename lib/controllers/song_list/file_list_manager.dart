@@ -1,5 +1,8 @@
 import 'dart:async';
+
 import 'package:yl_music_player/controllers/song_list/song_list_managers.dart';
+
+import '../../utils/data_structures/track_metadata_item.dart';
 
 enum FileListSortOption {
   title('Title'),
@@ -7,10 +10,10 @@ enum FileListSortOption {
   album('Album');
 
   final String label;
-
   const FileListSortOption(this.label);
 }
 
+/// Manages full track library, persisted to `file_list` table.
 class FileListManager extends SongListManager {
   FileListManager({required super.db, super.maxCacheSize = 250});
 
@@ -19,19 +22,38 @@ class FileListManager extends SongListManager {
 
   Timer? _debounceTimer;
 
-  /// Loads playlist paths from the database and initializes mock tracks if empty.
   @override
   Future<void> loadListFromDb({
     Future<void> Function(String filePath)? onSongReady,
   }) async {
-    await super.loadListFromDb();
+    if (db == null) return;
 
-    // Apply the active sorting rule to privateSongPaths
+    final items = await db!.loadFileList();
+    privateSongPaths.clear();
+
+    for (final item in items) {
+      privateSongPaths.add(item.filePath);
+      putToCache(item.filePath, item);
+    }
+
     _sortTracks();
 
     if (privateSongPaths.isNotEmpty && onSongReady != null) {
       onSongReady(privateSongPaths.first);
     }
+  }
+
+  @override
+  Future<void> saveListToDb() async {
+    if (db == null) return;
+
+    final List<TrackMetadataItem> items = [];
+    for (final path in privateSongPaths) {
+      final cached = peekCache(path) ?? getSyncFallback(path);
+      items.add(cached);
+    }
+
+    await db!.saveFileList(items);
   }
 
   void setSortOption(FileListSortOption sortOption) {
@@ -43,8 +65,8 @@ class FileListManager extends SongListManager {
     if (privateSongPaths.isEmpty) return;
 
     privateSongPaths.sort((pathA, pathB) {
-      final metaA = getCachedMetadataAtIndex(privateSongPaths.indexOf(pathA));
-      final metaB = getCachedMetadataAtIndex(privateSongPaths.indexOf(pathB));
+      final metaA = peekCache(pathA) ?? getSyncFallback(pathA);
+      final metaB = peekCache(pathB) ?? getSyncFallback(pathB);
 
       switch (_currentSort) {
         case FileListSortOption.title:
@@ -56,7 +78,6 @@ class FileListManager extends SongListManager {
       }
     });
 
-    // Automatically trigger database save after sorting
     _scheduleDbSave();
   }
 

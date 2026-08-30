@@ -1,12 +1,17 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:metadata_god/metadata_god.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:yl_music_player/components/player/playback_controls.dart';
 import 'package:yl_music_player/controllers/audio/audio_player_controller.dart';
 import 'package:yl_music_player/controllers/network/lan_transfer_controller.dart';
 import 'package:yl_music_player/controllers/song_list/file_list_manager.dart';
 import 'package:yl_music_player/navigation/app_router.dart';
 import 'package:yl_music_player/pages/file_manager_page.dart';
+import 'package:yl_music_player/pages/lan_receive_dialog.dart';
 import 'package:yl_music_player/pages/player_page.dart';
 import 'package:yl_music_player/system/system_media_handler.dart';
 import 'package:yl_music_player/themes/theme_provider.dart';
@@ -24,12 +29,17 @@ late SystemMediaHandler systemMediaHandler;
 late IDatabaseStorage dbStorage;
 
 final AudioPlayerController audioPlayerController = AudioPlayerController();
-final playlistManager = PlaylistManager(db: dbStorage);
+late final PlaylistManager playlistManager;
 final lyricsHandler = LyricsHandler();
-final fileListManager = FileListManager(db: dbStorage);
+late final FileListManager fileListManager;
 final transferController = LanTransferController();
+final lanTransferController = LanTransferController();
 
 final playbackControlKey = GlobalKey<PlaybackControlsState>();
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+
+bool isTransferEnabled = false;
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +48,9 @@ void main(List<String> args) async {
   await SettingsStorage.instance.init();
   dbStorage = SQLiteStorage();
   await dbStorage.init();
+
+  playlistManager = PlaylistManager(db: dbStorage);
+  fileListManager = FileListManager(db: dbStorage);
 
   ThemeController.instance.init();
 
@@ -57,8 +70,91 @@ void main(List<String> args) async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  bool _servicePaused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // _initService();
+    _initTransferServer();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _disposeResources();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.detached) {
+      _disposeResources();
+    }
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      lanTransferController.stopService();
+      _servicePaused = true;
+    } else if (_servicePaused) {
+      _servicePaused = false;
+
+      lanTransferController.initService();
+    }
+  }
+
+  /// Clean up and release system resources when the application terminates
+  void _disposeResources() {
+    transferController.stopService();
+    transferController.dispose();
+
+    lanTransferController.stopService();
+    lanTransferController.dispose();
+
+    audioPlayerController.dispose();
+
+    // Close database storage handles if implemented
+    dbStorage.close();
+  }
+
+
+  Future<void> _initTransferServer() async {
+    // Handshake Callback: Prompt user when incoming transfer batch is requested
+    lanTransferController.onRequestReceived = (batchRequest) async {
+      final Completer<bool> completer = Completer<bool>();
+
+      LanReceiveDialog.show(
+        navigatorKey.currentContext!,
+        batchRequest: batchRequest,
+        onAccept: () => completer.complete(true),
+        onDecline: () => completer.complete(false),
+      );
+
+      return completer.future;
+    };
+
+    // Callback when binary stream saves a track file to disk
+    lanTransferController.onTrackReceived = (tempPath) async {
+      final docsDir = await getApplicationDocumentsDirectory();
+      final targetFileName = tempPath.split(Platform.pathSeparator).last;
+      final targetPath = '${docsDir.path}/$targetFileName';
+
+      final savedFile = await File(tempPath).copy(targetPath);
+      await File(tempPath).delete();
+
+      if (mounted) {
+        await fileListManager.addFileAt(savedFile.path, 0);
+        setState(() { });
+      }
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +164,7 @@ class MyApp extends StatelessWidget {
         return CustomThemeProvider(
           theme: activeTheme,
           child: MaterialApp(
+            navigatorKey: navigatorKey,
             debugShowCheckedModeBanner: false,
             title: 'YL Music Player',
             theme: activeTheme.themeData,

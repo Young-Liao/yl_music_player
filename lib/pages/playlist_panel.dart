@@ -51,7 +51,8 @@ class PlaylistPanel extends StatefulWidget {
 class PlaylistPanelState extends State<PlaylistPanel> {
   final DraggableScrollableController _sheetController =
   DraggableScrollableController();
-  final GlobalKey<SongListViewState> _songListKey = GlobalKey<SongListViewState>();
+  final GlobalKey<SongListViewState> _songListKey =
+  GlobalKey<SongListViewState>();
 
   bool _isLoading = true;
   bool _hasInitialScrolled = false;
@@ -110,7 +111,6 @@ class PlaylistPanelState extends State<PlaylistPanel> {
 
     hide();
 
-    // Placeholder mock response for demonstration:
     final List<String>? selectedPaths = await _showFileManagerModal(context);
 
     if (selectedPaths == null || selectedPaths.isEmpty) return;
@@ -132,10 +132,10 @@ class PlaylistPanelState extends State<PlaylistPanel> {
     }
   }
 
-  // Helper method to simulate launching your file manager if it's a route/dialog
   Future<List<String>?> _showFileManagerModal(BuildContext context) async {
     AppRouter.instance.goToPage(1);
-    final ans = await fileManagerPageKey.currentState?.selectTracksInteractively();
+    final ans =
+    await fileManagerPageKey.currentState?.selectTracksInteractively();
     AppRouter.instance.goToPage(0);
     return ans;
   }
@@ -156,7 +156,7 @@ class PlaylistPanelState extends State<PlaylistPanel> {
     final isCurrent = await widget.playlistManager.deleteItem(index);
     if (isCurrent) {
       widget.audioController.stop();
-      lyricsHandler.loadFromFile(""); // TO EMPTY THE LYRICS
+      lyricsHandler.loadFromFile("");
     }
     _songListKey.currentState?.refresh();
   }
@@ -186,7 +186,9 @@ class PlaylistPanelState extends State<PlaylistPanel> {
   Future<void> _handleBatchDelete() async {
     if (_selectedIndices.isEmpty) return;
 
-    final sortedIndices = _selectedIndices.toList()..sort((a, b) => b.compareTo(a));  // To prevent influence!!!
+    // Process from high index to low index to maintain valid relative positions
+    final sortedIndices = _selectedIndices.toList()
+      ..sort((a, b) => b.compareTo(a));
 
     bool stoppedCurrent = false;
     for (final index in sortedIndices) {
@@ -198,7 +200,7 @@ class PlaylistPanelState extends State<PlaylistPanel> {
 
     if (stoppedCurrent) {
       widget.audioController.stop();
-      lyricsHandler.loadFromFile(""); // TO EMPTY THE LYRICS
+      lyricsHandler.loadFromFile("");
     }
 
     setState(() {
@@ -280,8 +282,7 @@ class PlaylistPanelState extends State<PlaylistPanel> {
                           onToggleSelect: _toggleSelectIndex,
                         ),
                       ),
-                      if (_isSelectionMode)
-                        _buildBatchActionFooter(theme),
+                      if (_isSelectionMode) _buildBatchActionFooter(theme),
                     ],
                   ),
                 ),
@@ -363,14 +364,16 @@ class PlaylistPanelState extends State<PlaylistPanel> {
               IconButton(
                 onPressed: _toggleSelectionMode,
                 icon: Icon(
-                  _isSelectionMode ? Icons.close_rounded : Icons.checklist_rounded,
+                  _isSelectionMode
+                      ? Icons.close_rounded
+                      : Icons.checklist_rounded,
                   color: theme.primaryColor,
                 ),
-                tooltip: _isSelectionMode ? 'Cancel Selection' : 'Select Tracks',
+                tooltip:
+                _isSelectionMode ? 'Cancel Selection' : 'Select Tracks',
               ),
               const SizedBox(width: 4),
               if (!_isSelectionMode) ...[
-                // Replaced single IconButton with PopupMenuButton for Add options
                 PopupMenuButton<String>(
                   icon: Icon(Icons.add_rounded, color: theme.primaryColor),
                   tooltip: 'Add Track',
@@ -381,12 +384,14 @@ class PlaylistPanelState extends State<PlaylistPanel> {
                       _handleFileManagerPick();
                     }
                   },
-                  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  itemBuilder: (BuildContext context) =>
+                  <PopupMenuEntry<String>>[
                     PopupMenuItem<String>(
                       value: 'system',
                       child: Row(
                         children: [
-                          Icon(Icons.phone_android_rounded, size: 20, color: theme.primaryColor),
+                          Icon(Icons.phone_android_rounded,
+                              size: 20, color: theme.primaryColor),
                           const SizedBox(width: 12),
                           const Text('Load from System'),
                         ],
@@ -396,7 +401,8 @@ class PlaylistPanelState extends State<PlaylistPanel> {
                       value: 'file_manager',
                       child: Row(
                         children: [
-                          Icon(Icons.folder_open_rounded, size: 20, color: theme.primaryColor),
+                          Icon(Icons.folder_open_rounded,
+                              size: 20, color: theme.primaryColor),
                           const SizedBox(width: 12),
                           const Text('Load from File Manager'),
                         ],
@@ -453,11 +459,13 @@ class PlaylistPanelState extends State<PlaylistPanel> {
               child: OutlinedButton(
                 onPressed: () {
                   setState(() {
-                    if (_selectedIndices.length == widget.playlistManager.length) {
+                    if (_selectedIndices.length ==
+                        widget.playlistManager.length) {
                       _selectedIndices.clear();
                     } else {
                       _selectedIndices.addAll(
-                        List.generate(widget.playlistManager.length, (i) => i),
+                        List.generate(
+                            widget.playlistManager.length, (i) => i),
                       );
                     }
                   });
@@ -472,7 +480,8 @@ class PlaylistPanelState extends State<PlaylistPanel> {
             const SizedBox(width: 12),
             Expanded(
               child: FilledButton.icon(
-                onPressed: _selectedIndices.isEmpty ? null : _handleBatchDelete,
+                onPressed:
+                _selectedIndices.isEmpty ? null : _handleBatchDelete,
                 style: FilledButton.styleFrom(
                   backgroundColor: Colors.redAccent,
                   foregroundColor: Colors.white,

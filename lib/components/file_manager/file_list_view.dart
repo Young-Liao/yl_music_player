@@ -1,44 +1,97 @@
 import 'package:flutter/material.dart';
+
+import '../../controllers/audio/audio_player_controller.dart';
+import '../../controllers/song_list/file_list_manager.dart';
 import '../../themes/app_theme_interface.dart';
 import '../../themes/theme_provider.dart';
 import '../../utils/data_structures/track_metadata_item.dart';
-import '../../controllers/song_list/file_list_manager.dart';
 import '../song_list/song_list_view.dart';
 
-class FileListView extends SongListView {
+class FileListView extends StatefulWidget {
   final FileListManager fileListManager;
+  final AudioPlayerController audioController;
+  final ValueChanged<String> onPlayTrack;
+  final ScrollController scrollController;
+  final Function(int index)? onMoveToNext;
+  final Function(int index)? onDelete;
+
+  final bool isSelectionMode;
+  final Set<int> selectedIndices;
+  final ValueChanged<int>? onToggleSelect;
+  final bool areAllSelected;
+  final VoidCallback? onToggleSelectAll;
 
   const FileListView({
     super.key,
     required this.fileListManager,
-    required super.audioController,
-    required super.onPlayTrack,
-    required super.scrollController,
-    super.onMoveToNext,
-    super.onDelete,
-    super.isSelectionMode = false,
-    super.selectedIndices = const {},
-    super.onToggleSelect,
-  }) : super(songListManager: fileListManager);
+    required this.audioController,
+    required this.onPlayTrack,
+    required this.scrollController,
+    this.onMoveToNext,
+    this.onDelete,
+    this.isSelectionMode = false,
+    this.selectedIndices = const {},
+    this.onToggleSelect,
+    required this.areAllSelected,
+    required this.onToggleSelectAll,
+  });
 
   @override
-  State<SongListView> createState() => _FileListViewState();
+  State<FileListView> createState() => _FileListViewState();
 }
 
-class _FileListViewState extends SongListViewState {
+class _FileListViewState extends State<FileListView> {
   final ScrollController _horizontalScrollController = ScrollController();
+  // Average height of each ListView row in pixels
+  static const double _itemExtent = 56.0;
+  bool _isFetchingWindow = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.scrollController.addListener(_onScrollChanged);
+  }
 
   @override
   void dispose() {
+    widget.scrollController.removeListener(_onScrollChanged);
     _horizontalScrollController.dispose();
     super.dispose();
   }
 
+  void _onScrollChanged() {
+    _checkAndLoadVisibleWindow();
+  }
+
+  void _checkAndLoadVisibleWindow() {
+    if (_isFetchingWindow || !widget.scrollController.hasClients) return;
+
+    final double offset = widget.scrollController.offset;
+    final double viewportHeight = widget.scrollController.position.viewportDimension;
+
+    // Calculate window bounds with a small overscan buffer
+    final int windowL = (offset / _itemExtent).floor() - 2;
+    final int windowR = ((offset + viewportHeight) / _itemExtent).ceil() + 2;
+
+    _isFetchingWindow = true;
+
+    widget.fileListManager.ensureWindowCached(windowL, windowR).then((hasUpdated) {
+      _isFetchingWindow = false;
+      if (mounted && hasUpdated) {
+        setState(() {}); // Rebuild UI with newly populated cache metadata
+      }
+    }).catchError((_) {
+      _isFetchingWindow = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndLoadVisibleWindow();
+    });
+
     final theme = CustomThemeProvider.of(context);
-    final fileManager = (widget.songListManager as FileListManager);
-    final fileListView = (widget as FileListView);
 
     return Container(
       decoration: BoxDecoration(
@@ -85,7 +138,8 @@ class _FileListViewState extends SongListViewState {
                   MenuAnchor(
                     style: MenuStyle(
                       elevation: const WidgetStatePropertyAll(4),
-                      shadowColor: const WidgetStatePropertyAll(Colors.black12),
+                      shadowColor:
+                      const WidgetStatePropertyAll(Colors.black12),
                       surfaceTintColor: const WidgetStatePropertyAll(
                         Colors.transparent,
                       ),
@@ -101,10 +155,10 @@ class _FileListViewState extends SongListViewState {
                         ),
                       ),
                     ),
-                    menuChildren: FileListSortOption.values.map((
-                        FileListSortOption option,
-                        ) {
-                      final isSelected = option == fileManager.currentSort;
+                    menuChildren: FileListSortOption.values
+                        .map((FileListSortOption option) {
+                      final isSelected =
+                          option == widget.fileListManager.currentSort;
                       return MenuItemButton(
                         style: ButtonStyle(
                           overlayColor: WidgetStateProperty.all(
@@ -113,7 +167,8 @@ class _FileListViewState extends SongListViewState {
                           backgroundColor: WidgetStateProperty.resolveWith((
                               states,
                               ) {
-                            if (states.contains(WidgetState.hovered) || isSelected) {
+                            if (states.contains(WidgetState.hovered) ||
+                                isSelected) {
                               return theme.outerBackgroundColor.withValues(
                                 alpha: 0.5,
                               );
@@ -129,13 +184,14 @@ class _FileListViewState extends SongListViewState {
                         ),
                         onPressed: () {
                           setState(() {
-                            fileManager.setSortOption(option);
+                            widget.fileListManager.setSortOption(option);
                           });
                         },
                         child: Container(
                           width: 100,
                           height: 32,
-                          padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                          padding:
+                          const EdgeInsets.symmetric(horizontal: 10.0),
                           alignment: Alignment.centerLeft,
                           decoration: BoxDecoration(
                             color: Colors.transparent,
@@ -184,7 +240,7 @@ class _FileListViewState extends SongListViewState {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                fileManager.currentSort.label,
+                                widget.fileListManager.currentSort.label,
                                 style: TextStyle(
                                   fontSize: 13.0,
                                   fontWeight: FontWeight.w600,
@@ -249,12 +305,23 @@ class _FileListViewState extends SongListViewState {
                           Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12.0,
-                              vertical: 8.0,
+                              vertical: 4.0,
                             ),
                             child: Row(
                               children: [
-                                if (fileListView.isSelectionMode)
-                                  const SizedBox(width: 40),
+                                if (widget.isSelectionMode) ...[
+                                  SizedBox(
+                                    width: 32,
+                                    height: 32,
+                                    child: Checkbox(
+                                      value: widget.areAllSelected,
+                                      activeColor: theme.primaryColor,
+                                      onChanged: (_) =>
+                                          widget.onToggleSelectAll?.call(),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16.0),
+                                ],
                                 Expanded(
                                   flex: 5,
                                   child: Text(
@@ -284,13 +351,12 @@ class _FileListViewState extends SongListViewState {
                           Expanded(
                             child: ListView.builder(
                               controller: widget.scrollController,
-                              itemCount: fileManager.length,
+                              itemCount: widget.fileListManager.length,
                               itemBuilder: (context, index) {
-                                final track = fileManager
+                                final track = widget.fileListManager
                                     .getCachedMetadataAtIndex(index);
-                                final isActive =
-                                    track.filePath ==
-                                        widget.audioController.currentPath;
+                                final isActive = track.filePath ==
+                                    widget.audioController.currentPath;
 
                                 return _buildFileRow(
                                   context,
@@ -298,7 +364,6 @@ class _FileListViewState extends SongListViewState {
                                   track,
                                   index,
                                   isActive,
-                                  fileListView,
                                 );
                               },
                             ),
@@ -331,9 +396,8 @@ class _FileListViewState extends SongListViewState {
       TrackMetadataItem track,
       int index,
       bool isActive,
-      FileListView fileListView,
       ) {
-    final bool isSelected = fileListView.selectedIndices.contains(index);
+    final bool isSelected = widget.selectedIndices.contains(index);
 
     return Material(
       color: isSelected
@@ -342,8 +406,8 @@ class _FileListViewState extends SongListViewState {
       borderRadius: BorderRadius.circular(8.0),
       child: InkWell(
         onTap: () {
-          if (fileListView.isSelectionMode) {
-            fileListView.onToggleSelect?.call(index);
+          if (widget.isSelectionMode) {
+            widget.onToggleSelect?.call(index);
           } else {
             widget.onPlayTrack(track.filePath);
           }
@@ -353,19 +417,23 @@ class _FileListViewState extends SongListViewState {
           padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
           child: Row(
             children: [
-              if (fileListView.isSelectionMode) ...[
-                Checkbox(
-                  value: isSelected,
-                  activeColor: theme.primaryColor,
-                  onChanged: (_) => fileListView.onToggleSelect?.call(index),
+              if (widget.isSelectionMode) ...[
+                SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: Checkbox(
+                    value: isSelected,
+                    activeColor: theme.primaryColor,
+                    onChanged: (_) => widget.onToggleSelect?.call(index),
+                  ),
                 ),
-                const SizedBox(width: 8.0),
+                const SizedBox(width: 16.0),
               ],
               Expanded(
                 flex: 5,
                 child: Row(
                   children: [
-                    buildTrackArtwork(theme, track),
+                    TrackArtworkWidget(theme: theme, track: track),
                     const SizedBox(width: 14.0),
                     Expanded(
                       child: Column(
@@ -427,13 +495,13 @@ class _FileListViewState extends SongListViewState {
                   onSelected: (value) {
                     switch (value) {
                       case 'play_now':
-                      // TODO: Implement Play Now action
+                        widget.onPlayTrack(track.filePath);
                         break;
                       case 'play_next':
-                      // TODO: Implement Play Next action
+                        widget.onMoveToNext?.call(index);
                         break;
                       case 'delete':
-                      // TODO: Implement Delete action
+                        widget.onDelete?.call(index);
                         break;
                     }
                   },
@@ -442,8 +510,11 @@ class _FileListViewState extends SongListViewState {
                       value: 'play_now',
                       child: Row(
                         children: [
-                          Icon(Icons.play_arrow_rounded,
-                              size: 18, color: theme.primaryColor),
+                          Icon(
+                            Icons.play_arrow_rounded,
+                            size: 18,
+                            color: theme.primaryColor,
+                          ),
                           const SizedBox(width: 8),
                           const Text('Play Now'),
                         ],
@@ -453,8 +524,11 @@ class _FileListViewState extends SongListViewState {
                       value: 'play_next',
                       child: Row(
                         children: [
-                          Icon(Icons.playlist_add_rounded,
-                              size: 18, color: theme.primaryColor),
+                          Icon(
+                            Icons.playlist_add_rounded,
+                            size: 18,
+                            color: theme.primaryColor,
+                          ),
                           const SizedBox(width: 8),
                           const Text('Play Next'),
                         ],
@@ -465,8 +539,11 @@ class _FileListViewState extends SongListViewState {
                       value: 'delete',
                       child: Row(
                         children: [
-                          Icon(Icons.delete_outline_rounded,
-                              size: 18, color: Colors.redAccent),
+                          Icon(
+                            Icons.delete_outline_rounded,
+                            size: 18,
+                            color: Colors.redAccent,
+                          ),
                           SizedBox(width: 8),
                           Text(
                             'Delete',

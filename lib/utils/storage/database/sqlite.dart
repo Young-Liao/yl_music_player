@@ -9,6 +9,7 @@ import 'interface.dart';
 
 class SQLiteStorage implements IDatabaseStorage {
   Database? _db;
+  Directory? _appSupportDir;
 
   @override
   Future<void> init() async {
@@ -20,10 +21,10 @@ class SQLiteStorage implements IDatabaseStorage {
       databaseFactory = databaseFactoryFfi;
     }
 
-    final docDir = await getApplicationSupportDirectory();
-    final dbPath = p.join(docDir.path, 'yl_music_player', 'app_data.db');
+    _appSupportDir = await getApplicationSupportDirectory();
+    debugPrint("App Support Dir: $_appSupportDir");
+    final dbPath = p.join(_appSupportDir!.path, 'yl_music_player', 'app_data.db');
 
-    // Ensure parent directory exists
     final dbFile = File(dbPath);
     if (!await dbFile.parent.exists()) {
       await dbFile.parent.create(recursive: true);
@@ -31,89 +32,168 @@ class SQLiteStorage implements IDatabaseStorage {
 
     _db = await openDatabase(
       dbPath,
-      version: 2, // Incremented version for schema update
+      version: 3,
       onCreate: (Database db, int version) async {
         await _createTables(db);
       },
       onUpgrade: (Database db, int oldVersion, int newVersion) async {
-        if (oldVersion < 2) {
-          await db.execute('''
-            CREATE TABLE file_list (
-              file_path TEXT PRIMARY KEY,
-              title TEXT NOT NULL,
-              artist TEXT NOT NULL,
-              album TEXT NOT NULL,
-              duration_ms INTEGER NOT NULL
-            )
-          ''');
+        if (oldVersion < 3) {
+          // Re-create isolated table structures to guarantee non-overlapping queries
+          await db.execute('DROP TABLE IF EXISTS playlist');
+          await db.execute('DROP TABLE IF EXISTS current_playlist');
+          await db.execute('DROP TABLE IF EXISTS file_list');
+          await _createTables(db);
         }
       },
     );
   }
 
-  Future<void> _createTables(Database db) async {
-    await db.execute('''
-      CREATE TABLE playlist (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        file_path TEXT NOT NULL UNIQUE,
-        track_order INTEGER NOT NULL
-      )
-    ''');
+  String _toRelativePath(String absolutePath) {
+    if (_appSupportDir == null) return absolutePath;
+    final rootPath = _appSupportDir!.path;
+    if (absolutePath.startsWith(rootPath)) {
+      return p.relative(absolutePath, from: rootPath);
+    }
+    if (absolutePath.contains('/Containers/Data/Application/')) {
+      return p.basename(absolutePath);
+    }
+    return absolutePath;
+  }
 
-    await db.execute('''
-      CREATE TABLE metadata_cache (
-        file_path TEXT PRIMARY KEY,
-        title TEXT,
-        artist TEXT,
-        artwork BLOB
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE file_list (
-        file_path TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        artist TEXT NOT NULL,
-        album TEXT NOT NULL
-      )
-    ''');
+  String _toAbsolutePath(String relativePath) {
+    if (_appSupportDir == null || p.isAbsolute(relativePath)) {
+      return relativePath;
+    }
+    return p.join(_appSupportDir!.path, relativePath);
   }
 
   Database get _database {
     if (_db == null) {
-      throw StateError(
-        'SQLiteStorage has not been initialized. Call init() first.',
-      );
+      throw StateError('SQLiteStorage has not been initialized. Call init() first.');
     }
     return _db!;
   }
 
+  // --- Current Active Queue / Playlist Operations ---
+
   @override
   Future<List<String>> loadPlaylist() async {
     final results = await _database.query(
-      'playlist',
+      'current_playlist',
       orderBy: 'track_order ASC',
     );
-    return results.map((row) => row['file_path'] as String).toList();
+
+    final List<String> validPaths = [];
+    final List<String> deadRelativePaths = [];
+
+    for (final row in results) {
+      final storedPath = row['file_path'] as String;
+      final absolutePath = _toAbsolutePath(storedPath);
+
+      if (await File(absolutePath).exists()) {
+        validPaths.add(absolutePath);
+      } else {
+        deadRelativePaths.add(storedPath);
+        debugPrint('[SQLiteStorage] Pruning missing current_playlist file: $storedPath');
+      }
+    }
+
+    if (deadRelativePaths.isNotEmpty) {
+      await _database.delete(
+        'current_playlist',
+        where: 'file_path IN (${List.filled(deadRelativePaths.length, '?').join(',')})',
+        whereArgs: deadRelativePaths,
+      );
+    }
+
+    return validPaths;
   }
 
   @override
   Future<void> savePlaylist(List<String> paths) async {
     final db = _database;
     await db.transaction((txn) async {
-      await txn.delete('playlist');
+      await txn.delete('current_playlist');
       final batch = txn.batch();
       for (int i = 0; i < paths.length; i++) {
-        batch.insert('playlist', {'file_path': paths[i], 'track_order': i});
+        final relPath = _toRelativePath(paths[i]);
+        batch.insert('current_playlist', {
+          'file_path': relPath,
+          'track_order': i,
+        });
       }
       await batch.commit(noResult: true);
     });
   }
 
+  // --- File List Library Operations ---
+
+  @override
+  Future<List<TrackMetadataItem>> loadFileList() async {
+    final results = await _database.query('file_list');
+    final List<TrackMetadataItem> items = [];
+    final List<String> deadRelativePaths = [];
+
+    for (final row in results) {
+      final storedPath = row['file_path'] as String;
+      final absolutePath = _toAbsolutePath(storedPath);
+
+      if (await File(absolutePath).exists()) {
+        items.add(TrackMetadataItem(
+          filePath: absolutePath,
+          title: row['title'] as String? ?? '',
+          artist: row['artist'] as String? ?? 'Unknown Artist',
+          album: row['album'] as String? ?? '',
+          compressedArtwork: row['artwork'] as Uint8List?,
+        ));
+      } else {
+        deadRelativePaths.add(storedPath);
+        debugPrint('[SQLiteStorage] Pruning missing file_list entry: $storedPath');
+      }
+    }
+
+    if (deadRelativePaths.isNotEmpty) {
+      await _database.delete(
+        'file_list',
+        where: 'file_path IN (${List.filled(deadRelativePaths.length, '?').join(',')})',
+        whereArgs: deadRelativePaths,
+      );
+    }
+
+    return items;
+  }
+
+  @override
+  Future<void> saveFileList(List<TrackMetadataItem> items) async {
+    final db = _database;
+    await db.transaction((txn) async {
+      await txn.delete('file_list');
+      final batch = txn.batch();
+      for (final item in items) {
+        final relPath = _toRelativePath(item.filePath);
+        batch.insert(
+          'file_list',
+          {
+            'file_path': relPath,
+            'title': item.title,
+            'artist': item.artist,
+            'album': item.album,
+            'artwork': item.compressedArtwork,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
+  // --- Metadata Cache Operations ---
+
   @override
   Future<void> saveCachedMetadata(TrackMetadataItem metadata) async {
+    final relPath = _toRelativePath(metadata.filePath);
     await _database.insert('metadata_cache', {
-      'file_path': metadata.filePath,
+      'file_path': relPath,
       'title': metadata.title,
       'artist': metadata.artist,
       'artwork': metadata.compressedArtwork,
@@ -126,52 +206,51 @@ class SQLiteStorage implements IDatabaseStorage {
     final Map<String, TrackMetadataItem> map = {};
 
     for (final row in results) {
-      final path = row['file_path'] as String;
-      map[path] = TrackMetadataItem(
-        filePath: path,
-        title: row['title'] as String? ?? '',
-        artist: row['artist'] as String? ?? 'Unknown Artist',
-        compressedArtwork: row['artwork'] as Uint8List?,
-      );
+      final storedPath = row['file_path'] as String;
+      final absolutePath = _toAbsolutePath(storedPath);
+
+      if (await File(absolutePath).exists()) {
+        map[absolutePath] = TrackMetadataItem(
+          filePath: absolutePath,
+          title: row['title'] as String? ?? '',
+          artist: row['artist'] as String? ?? 'Unknown Artist',
+          compressedArtwork: row['artwork'] as Uint8List?,
+        );
+      }
     }
     return map;
   }
 
-  // --- New File List Storage Methods ---
+  Future<void> _createTables(Database db) async {
+    // 1. Current playback queue table
+    await db.execute('''
+      CREATE TABLE current_playlist (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        file_path TEXT NOT NULL UNIQUE,
+        track_order INTEGER NOT NULL
+      )
+    ''');
 
-  @override
-  Future<void> saveFileList(List<TrackMetadataItem> items) async {
-    final db = _database;
-    await db.transaction((txn) async {
-      await txn.delete('file_list');
-      final batch = txn.batch();
-      for (final item in items) {
-        batch.insert(
-          'file_list',
-          {
-            'file_path': item.filePath,
-            'title': item.title,
-            'artist': item.artist,
-            'album': item.album,
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-      await batch.commit(noResult: true);
-    });
-  }
+    // 2. Main local music library metadata table
+    await db.execute('''
+      CREATE TABLE file_list (
+        file_path TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        artist TEXT NOT NULL,
+        album TEXT NOT NULL,
+        artwork BLOB
+      )
+    ''');
 
-  @override
-  Future<List<TrackMetadataItem>> loadFileList() async {
-    final results = await _database.query('file_list');
-    return results.map((row) {
-      return TrackMetadataItem(
-        filePath: row['file_path'] as String,
-        title: row['title'] as String? ?? '',
-        artist: row['artist'] as String? ?? '',
-        album: row['album'] as String? ?? '',
-      );
-    }).toList();
+    // 3. Temporary fast-lookup cache table
+    await db.execute('''
+      CREATE TABLE metadata_cache (
+        file_path TEXT PRIMARY KEY,
+        title TEXT,
+        artist TEXT,
+        artwork BLOB
+      )
+    ''');
   }
 
   @override
