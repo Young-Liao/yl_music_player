@@ -183,65 +183,72 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                     builder: (context, _) {
                       final theme = CustomThemeProvider.of(context);
 
-                      return SafeArea(
-                        child: Stack(
-                          children: [
-                            // 1. Foreground Layer: Full Main Card (Encloses HeaderBar & IndexedStack)
-                            Padding(
-                              padding: EdgeInsets.all(isNarrow ? 0.0 : 24.0),
-                              child: Container(
-                                width: double.infinity,
-                                height: double.infinity,
-                                padding: const EdgeInsets.only(
-                                  left: 24.0,
-                                  right: 24.0,
-                                  top: 12.0,
-                                  bottom: 24.0,
+                      return Stack(
+                        children: [
+                          // Main Card Container extending to the status bar on mobile
+                          Padding(
+                            padding: EdgeInsets.all(isNarrow ? 0.0 : 24.0),
+                            child: Container(
+                              width: double.infinity,
+                              height: double.infinity,
+                              decoration: BoxDecoration(
+                                color: theme.cardBackgroundColor,
+                                borderRadius: isNarrow
+                                    ? BorderRadius.zero
+                                    : BorderRadius.circular(
+                                  theme.cardCornerRadius,
                                 ),
-                                decoration: BoxDecoration(
-                                  color: theme.cardBackgroundColor,
-                                  borderRadius: BorderRadius.circular(
-                                    theme.cardCornerRadius,
+                                boxShadow: isNarrow
+                                    ? []
+                                    : [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(
+                                      alpha: 0.05,
+                                    ),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 10),
                                   ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.05,
-                                      ),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, 10),
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  children: [
-                                    // HeaderBar placed inside top of card
-                                    const HeaderBar(),
-                                    const SizedBox(height: 12.0),
+                                ],
+                              ),
+                              child: SafeArea(
+                                bottom: false, // Let AppBottomNavigationBar handle bottom inset
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    left: isNarrow ? 16.0 : 24.0,
+                                    right: isNarrow ? 16.0 : 24.0,
+                                    top: isNarrow ? 0.0 : 12.0,
+                                    bottom: isNarrow ? 0.0 : 24.0,
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      // HeaderBar placed inside top of card
+                                      const HeaderBar(),
+                                      const SizedBox(height: 12.0),
 
-                                    // Page Content Stack
-                                    Expanded(
-                                      child: IndexedStack(
-                                        index: AppRoute.values.indexOf(
-                                          AppRouter.instance.currentRoute,
+                                      // Page Content Stack
+                                      Expanded(
+                                        child: IndexedStack(
+                                          index: AppRoute.values.indexOf(
+                                            AppRouter.instance.currentRoute,
+                                          ),
+                                          children: [
+                                            PlayerPage(),
+                                            FileManagerPage(),
+                                            SettingsPage(),
+                                          ],
                                         ),
-                                        children: [
-                                          PlayerPage(),
-                                          FileManagerPage(),
-                                          SettingsPage(),
-                                        ],
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       );
                     },
                   ),
-                  bottomNavigationBar: AppBottomNavigationBar(),
+                  bottomNavigationBar: const AppBottomNavigationBar(),
                 );
               },
             ),
