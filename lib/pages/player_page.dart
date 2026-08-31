@@ -17,7 +17,6 @@ import 'package:yl_music_player/utils/track_stepper_mixin.dart';
 import '../controllers/song_list/playlist_manager.dart';
 import '../themes/app_theme_interface.dart';
 import '../themes/theme_provider.dart';
-import '../components/window/header_bar.dart';
 
 enum PlayerDisplayMode { metadata, lyrics }
 
@@ -61,13 +60,13 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
     audioController.lyricsHandler = lyricsHandler;
     playlistManager
         .loadListFromDb(
-          onSongReady: (filePath) async {
-            await loadSong(TrackMetadataItem.onlyPath(filePath));
-            debugPrint(
-              "Successfully loaded song at index ${playlistManager.currentIndex}: $filePath",
-            );
-          },
-        )
+      onSongReady: (filePath) async {
+        await loadSong(TrackMetadataItem.onlyPath(filePath));
+        debugPrint(
+          "Successfully loaded song at index ${playlistManager.currentIndex}: $filePath",
+        );
+      },
+    )
         .then((_) => LinkService.instance.releaseCache());
   }
 
@@ -172,13 +171,6 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
         if (isWide) {
           return Column(
             children: [
-              HeaderBar(
-                onTransferServiceChanged: (value) {
-                  if (mounted) {
-                    setState(() {});
-                  }
-                },
-              ),
               const SizedBox(height: 16),
               Expanded(
                 child: Row(
@@ -203,13 +195,6 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
           return Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              HeaderBar(
-                onTransferServiceChanged: (value) {
-                  if (mounted) {
-                    setState(() {});
-                  }
-                },
-              ),
               Expanded(child: _buildMetadataAndLyricsSwitcher()),
               _buildControlsSection(),
             ],
@@ -257,7 +242,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
         final theme = CustomThemeProvider.of(context);
         final isDesktop =
             !kIsWeb &&
-            (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+                (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
         return DropTarget(
           onDragEntered: (_) => setState(() => _isDragging = true),
@@ -267,53 +252,17 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
             final paths = details.files.map((XFile file) => file.path).toList();
             _handleIncomingFiles(paths);
           },
-          child: Scaffold(
-            backgroundColor: theme.outerBackgroundColor,
-            body: Stack(
-              children: [
-                // 1. Background layer: Full window DragToMoveArea for all outer gaps
-                if (isDesktop)
-                  Positioned.fill(
-                    child: DragToMoveArea(
-                      child: Container(color: Colors.transparent),
-                    ),
-                  ),
-
-                // 2. Foreground layer: Main Card Content
-                SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Container(
-                      width: double.infinity,
-                      height: double.infinity,
-                      padding: const EdgeInsets.only(
-                        left: 24.0,
-                        right: 24.0,
-                        top: 8.0,
-                        bottom: 28.0,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.cardBackgroundColor,
-                        borderRadius: BorderRadius.circular(
-                          theme.cardCornerRadius,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: _buildDynamicLayout(),
-                    ),
+          child: Stack(
+            children: [
+              if (isDesktop)
+                Positioned.fill(
+                  child: DragToMoveArea(
+                    child: Container(color: Colors.transparent),
                   ),
                 ),
-
-                // 3. Drag overlay layer
-                if (_isDragging) _buildDragOverlay(theme),
-              ],
-            ),
+              _buildDynamicLayout(),
+              if (_isDragging) _buildDragOverlay(theme),
+            ],
           ),
         );
       },

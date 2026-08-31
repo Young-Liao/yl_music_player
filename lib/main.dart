@@ -13,6 +13,7 @@ import 'package:yl_music_player/navigation/app_router.dart';
 import 'package:yl_music_player/pages/file_manager_page.dart';
 import 'package:yl_music_player/pages/lan_receive_dialog.dart';
 import 'package:yl_music_player/pages/player_page.dart';
+import 'package:yl_music_player/pages/settings_page.dart';
 import 'package:yl_music_player/system/system_media_handler.dart';
 import 'package:yl_music_player/themes/theme_provider.dart';
 import 'package:yl_music_player/themes/themes.dart';
@@ -20,6 +21,8 @@ import 'package:yl_music_player/utils/link_service.dart';
 import 'package:yl_music_player/utils/storage/database/interface.dart';
 import 'package:yl_music_player/utils/storage/database/sqlite.dart';
 import 'package:yl_music_player/utils/storage/settings.dart';
+import 'components/window/app_bottom_navigation_bar.dart';
+import 'components/window/header_bar.dart';
 import 'configs/window.dart';
 import 'controllers/lyrics/lyrics_handler.dart';
 import 'controllers/song_list/group_manager.dart';
@@ -170,16 +173,75 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             debugShowCheckedModeBanner: false,
             title: 'YL Music Player',
             theme: activeTheme.themeData,
-            home: ListenableBuilder(
-              listenable: AppRouter.instance,
-              builder: (context, _) {
-                return IndexedStack(
-                  index: AppRouter.instance.currentIndex,
-                  children: [
-                    PlayerPage(
-                    ),
-                    FileManagerPage(),
-                  ],
+            home: LayoutBuilder(
+              builder: (context, constraints) {
+                final bool isNarrow = constraints.maxWidth < 600;
+                return Scaffold(
+                  backgroundColor: activeTheme.outerBackgroundColor,
+                  body: ListenableBuilder(
+                    listenable: AppRouter.instance,
+                    builder: (context, _) {
+                      final theme = CustomThemeProvider.of(context);
+
+                      return SafeArea(
+                        child: Stack(
+                          children: [
+                            // 1. Foreground Layer: Full Main Card (Encloses HeaderBar & IndexedStack)
+                            Padding(
+                              padding: EdgeInsets.all(isNarrow ? 0.0 : 24.0),
+                              child: Container(
+                                width: double.infinity,
+                                height: double.infinity,
+                                padding: const EdgeInsets.only(
+                                  left: 24.0,
+                                  right: 24.0,
+                                  top: 12.0,
+                                  bottom: 24.0,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: theme.cardBackgroundColor,
+                                  borderRadius: BorderRadius.circular(
+                                    theme.cardCornerRadius,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.05,
+                                      ),
+                                      blurRadius: 20,
+                                      offset: const Offset(0, 10),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  children: [
+                                    // HeaderBar placed inside top of card
+                                    const HeaderBar(),
+                                    const SizedBox(height: 12.0),
+
+                                    // Page Content Stack
+                                    Expanded(
+                                      child: IndexedStack(
+                                        index: AppRoute.values.indexOf(
+                                          AppRouter.instance.currentRoute,
+                                        ),
+                                        children: [
+                                          PlayerPage(),
+                                          FileManagerPage(),
+                                          SettingsPage(),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  bottomNavigationBar: AppBottomNavigationBar(),
                 );
               },
             ),

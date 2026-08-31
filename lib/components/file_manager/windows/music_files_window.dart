@@ -103,49 +103,56 @@ class _MusicFilesWindowState extends State<MusicFilesWindow> {
           totalCount,
         );
 
-        return Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            children: [
-              FileManagerActionBar(
-                isActiveSelectionMode: activeSelectionMode,
-                isLanTransferSelection:
-                    widget.selectionController.isLanTransferSelection,
-                isSubjectiveSelection: widget.isSubjectiveSelection,
-                selectedCount: widget.selectionController.selectedCount,
-                onToggleSelection: () {
-                  if (widget.selectionController.isLanTransferSelection) {
-                    widget.selectionController.cancelLanTransferMode();
-                  } else {
-                    widget.onToggleSelectionMode();
-                  }
-                },
-                onConfirmSelection: _handleConfirmSelection,
-                onBatchDelete: _handleBatchDelete,
-                onLanTransferPressed: () {
-                  widget.selectionController.startLanTransferMode();
-                },
-                onUploadFilesPressed: widget.onUploadFilesPressed,
-                onUploadFolderPressed: widget.onUploadFolderPressed,
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isNarrow = constraints.maxWidth < 600;
+            return Padding(
+              padding: EdgeInsets.fromLTRB(isNarrow ? 0.0 : 20.0, 0.0, 0.0, 0.0),
+              child: Column(
+                children: [
+                  FileManagerActionBar(
+                    isActiveSelectionMode: activeSelectionMode,
+                    isLanTransferSelection:
+                        widget.selectionController.isLanTransferSelection,
+                    isSubjectiveSelection: widget.isSubjectiveSelection,
+                    selectedCount: widget.selectionController.selectedCount,
+                    onToggleSelection: () {
+                      if (widget.selectionController.isLanTransferSelection) {
+                        widget.selectionController.cancelLanTransferMode();
+                      } else {
+                        widget.onToggleSelectionMode();
+                      }
+                    },
+                    onConfirmSelection: _handleConfirmSelection,
+                    onBatchDelete: _handleBatchDelete,
+                    onLanTransferPressed: () {
+                      widget.selectionController.startLanTransferMode();
+                    },
+                    onUploadFilesPressed: widget.onUploadFilesPressed,
+                    onUploadFolderPressed: widget.onUploadFolderPressed,
+                  ),
+                  const SizedBox(height: 16.0),
+                  Expanded(
+                    child: FileListView(
+                      fileListManager: widget.fileListManager,
+                      audioController: widget.audioController,
+                      onPlayTrack: widget.onPlayTrack,
+                      scrollController: _scrollController,
+                      onMoveToNext: widget.onMoveToNext ?? (index) {},
+                      isSelectionMode: activeSelectionMode,
+                      selectedIndices:
+                          widget.selectionController.selectedIndices,
+                      onToggleSelect:
+                          widget.selectionController.toggleSelectIndex,
+                      areAllSelected: areAllSelected,
+                      onToggleSelectAll: () => widget.selectionController
+                          .toggleSelectAll(totalCount),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16.0),
-              Expanded(
-                child: FileListView(
-                  fileListManager: widget.fileListManager,
-                  audioController: widget.audioController,
-                  onPlayTrack: widget.onPlayTrack,
-                  scrollController: _scrollController,
-                  onMoveToNext: widget.onMoveToNext ?? (index) {},
-                  isSelectionMode: activeSelectionMode,
-                  selectedIndices: widget.selectionController.selectedIndices,
-                  onToggleSelect: widget.selectionController.toggleSelectIndex,
-                  areAllSelected: areAllSelected,
-                  onToggleSelectAll: () =>
-                      widget.selectionController.toggleSelectAll(totalCount),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );

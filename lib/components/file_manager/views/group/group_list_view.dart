@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'package:yl_music_player/components/file_manager/views/group/widgets/group_list_navigation_bar.dart';
-import 'package:yl_music_player/components/file_manager/views/group/widgets/group_list_search_bar.dart';
 import 'package:yl_music_player/components/file_manager/views/group/widgets/group_node_tile.dart';
 import 'package:yl_music_player/components/file_manager/views/group/widgets/nested_group_picker_dialog.dart';
 import 'package:yl_music_player/components/file_manager/views/group/widgets/track_tile.dart';
@@ -421,7 +420,7 @@ class GroupListViewState extends State<GroupListView> {
       theme: theme,
       onPlayTrack: widget.onPlayTrack,
       onToggleTrackSelect: widget.onToggleTrackSelect,
-      onMoveToNext: widget.onMoveToNext,
+      onMoveToNext: (path) => widget.onMoveToNext(path),
       onDeleteTrack: (path) => _handleDeleteTrackInternal(track, groupId),
       onMoveToGroup: (trackItem, currentGroupId) => _handleMoveTrackToGroup(trackItem, currentGroupId),
     );
@@ -464,9 +463,13 @@ class GroupListViewState extends State<GroupListView> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Music Groups Items',
-                style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold, color: theme.textPrimary),
+              Expanded(
+                child: Text(
+                  'Music Groups Items',
+                  style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold, color: theme.textPrimary),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
               ),
               IconButton(
                 icon: const Icon(Icons.create_new_folder_outlined),
@@ -487,68 +490,77 @@ class GroupListViewState extends State<GroupListView> {
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                const double minTableWidth = 550.0;
-                final double tableWidth = constraints.maxWidth > minTableWidth ? constraints.maxWidth : minTableWidth;
+                final bool isNarrow = constraints.maxWidth < 450.0;
+                final double tableWidth = constraints.maxWidth > 550.0 ? constraints.maxWidth : 550.0;
 
                 return Scrollbar(
                   controller: _horizontalScrollController,
                   thumbVisibility: true,
-                  child: SingleChildScrollView(
-                    controller: _horizontalScrollController,
-                    scrollDirection: Axis.horizontal,
-                    child: SizedBox(
-                      width: tableWidth,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
-                            child: Row(
-                              children: [
-                                if (widget.isSelectionMode) ...[
-                                  SizedBox(
-                                    width: 32,
-                                    height: 32,
-                                    child: Checkbox(
-                                      value: widget.areAllSelected,
-                                      activeColor: theme.primaryColor,
-                                      onChanged: (_) => widget.onToggleSelectAll(),
-                                    ),
+                  child: SizedBox(
+                    width: tableWidth,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                          child: Row(
+                            children: [
+                              if (widget.isSelectionMode) ...[
+                                SizedBox(
+                                  width: 32,
+                                  height: 32,
+                                  child: Checkbox(
+                                    value: widget.areAllSelected,
+                                    activeColor: theme.primaryColor,
+                                    onChanged: (_) => widget.onToggleSelectAll(),
                                   ),
-                                  const SizedBox(width: 16),
-                                ],
-                                Expanded(
-                                  flex: 5,
-                                  child: Text('GROUP / TRACK TITLE', style: _headerTextStyle(theme)),
                                 ),
+                                const SizedBox(width: 16),
+                              ],
+                              Expanded(
+                                flex: 5,
+                                child: Text(
+                                  'GROUP / TRACK TITLE',
+                                  style: _headerTextStyle(theme),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                              if (!isNarrow) ...[
                                 Expanded(
                                   flex: 3,
-                                  child: Text('ALBUM', style: _headerTextStyle(theme)),
+                                  child: Text(
+                                    'ALBUM',
+                                    style: _headerTextStyle(theme),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
                                 ),
-                                const SizedBox(width: 32),
                               ],
-                            ),
+                              const SizedBox(width: 32),
+                            ],
                           ),
-                          Divider(height: 1, thickness: 1, color: theme.outerBackgroundColor),
-                          const SizedBox(height: 8),
-                          Expanded(
-                            child: ListView.builder(
-                              controller: widget.scrollController,
-                              padding: EdgeInsets.zero,
-                              itemCount: totalItems,
-                              itemBuilder: (context, index) {
-                                if (index < currentNodes.length) {
-                                  return _buildGroupNode(currentNodes[index], 0);
-                                }
-                                final trackIndex = index - currentNodes.length;
-                                final track = currentTracks[trackIndex];
-                                final targetGroupId = _treeCtrl.currentNavigationGroupId ?? 0;
-                                return _buildTrackNode(track, targetGroupId, 0);
-                              },
-                            ),
+                        ),
+                        Divider(height: 1, thickness: 1, color: theme.outerBackgroundColor),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: ListView.builder(
+                            controller: widget.scrollController,
+                            scrollDirection: Axis.vertical,
+                            padding: EdgeInsets.zero,
+                            itemCount: totalItems,
+                            itemBuilder: (context, index) {
+                              if (index < currentNodes.length) {
+                                return _buildGroupNode(currentNodes[index], 0);
+                              }
+                              final trackIndex = index - currentNodes.length;
+                              final track = currentTracks[trackIndex];
+                              final targetGroupId = _treeCtrl.currentNavigationGroupId ?? 0;
+                              return _buildTrackNode(track, targetGroupId, 0);
+                            },
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -574,9 +586,6 @@ class GroupListViewState extends State<GroupListView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        GroupListSearchBar(
-          onChanged: (q) => setState(() => _treeCtrl.searchQuery = q),
-        ),
         const SizedBox(height: 10),
         GroupListNavigationBar(
           currentNavigationGroupId: _treeCtrl.currentNavigationGroupId,

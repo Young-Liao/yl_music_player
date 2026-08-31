@@ -79,7 +79,7 @@
           cursor: pointer;
         }
 
-        /* Sub-navigation tabs (Player / File Manager / Settings) */
+        /* Top Switcher (Now Files / Playlists / Groups) */
         .view-switcher {
           display: flex;
           background: #f1f5f9;
@@ -217,7 +217,7 @@
           cursor: pointer;
         }
 
-        /* Bottom Mobile Navigation Bar */
+        /* Bottom Mobile Navigation Bar (Now Player / File Manager / Settings) */
         .bottom-nav {
           background: var(--card-bg);
           border-top: 1px solid var(--border-color);
@@ -252,17 +252,13 @@
     <!-- Top Header -->
     <header class="app-header">
         <div class="app-title">YL Music Player</div>
-        <div class="header-actions">
-            <button class="icon-btn"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>
-            <button class="icon-btn"><i class="fa-solid fa-sun"></i></button>
-        </div>
     </header>
 
-    <!-- Top Switcher (Player / File Manager / Settings) -->
+    <!-- Top Switcher (Library Navigation) -->
     <div class="view-switcher">
-        <button class="switcher-btn">Player</button>
-        <button class="switcher-btn active">File Manager</button>
-        <button class="switcher-btn">Settings</button>
+        <button class="switcher-btn active">Music Files</button>
+        <button class="switcher-btn">Playlists</button>
+        <button class="switcher-btn">Groups</button>
     </div>
 
     <!-- Content -->
@@ -319,19 +315,19 @@
         </div>
     </main>
 
-    <!-- Bottom Mobile Navigation Bar -->
+    <!-- Bottom Navigation Bar (Main Modes + Settings as 3rd Tab) -->
     <nav class="bottom-nav">
-        <a href="#" class="nav-item active">
+        <a href="#" class="nav-item">
             <i class="fa-solid fa-music"></i>
-            <span>Files</span>
+            <span>Player</span>
         </a>
-        <a href="#" class="nav-item">
-            <i class="fa-solid fa-list-ul"></i>
-            <span>Playlists</span>
-        </a>
-        <a href="#" class="nav-item">
+        <a href="#" class="nav-item active">
             <i class="fa-solid fa-folder"></i>
-            <span>Groups</span>
+            <span>File Manager</span>
+        </a>
+        <a href="#" class="nav-item">
+            <i class="fa-solid fa-sliders"></i>
+            <span>Settings</span>
         </a>
     </nav>
 </div>

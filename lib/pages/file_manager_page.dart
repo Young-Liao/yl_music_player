@@ -1,18 +1,17 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:window_manager/window_manager.dart';
 import 'package:yl_music_player/pages/playlist_panel.dart';
 
+import '../components/file_manager/pieces/library_segmented_control.dart';
 import '../components/file_manager/pieces/library_sidebar.dart';
 import '../components/file_manager/windows/groups_window.dart';
 import '../components/file_manager/windows/music_files_window.dart';
 import '../components/file_manager/windows/playlists_window.dart';
-import '../components/window/header_bar.dart';
 import '../components/window/uploading_dialog.dart';
 import '../controllers/song_list/item_selection_controller.dart';
 import '../main.dart';
@@ -31,7 +30,6 @@ class FileManagerPage extends StatefulWidget {
 
 class _FileManagerPageState extends State<FileManagerPage> {
   int _selectedLibraryIndex = 2;
-  bool _isDrawerOpen = false;
 
   late final ItemSelectionController _selectionController;
   Completer<List<String>>? _selectionCompleter;
@@ -47,7 +45,6 @@ class _FileManagerPageState extends State<FileManagerPage> {
   void _handleSelectIndex(int index) {
     setState(() {
       _selectedLibraryIndex = index;
-      _isDrawerOpen = false;
     });
   }
 
@@ -56,7 +53,6 @@ class _FileManagerPageState extends State<FileManagerPage> {
     final List<String> paths = await pickMultipleMusicFiles();
     if (paths.isEmpty) return paths;
 
-    // Show uploading dialog with progress for individual files
     if (mounted) {
       await UploadingDialog.show(
         context,
@@ -78,20 +74,17 @@ class _FileManagerPageState extends State<FileManagerPage> {
 
   /// Upload a folder, recursively mirror its structure into groups, and import songs.
   Future<List<String>> handleUploadFolder() async {
-    // 1. Open the system directory picker to select a folder
     final String? folderPath = await pickMusicFolder();
     if (folderPath == null || folderPath.isEmpty) {
-      return []; // User canceled the picker
+      return [];
     }
 
-    // 2. Extract the folder name to use as the root group name
     final String folderName = p.basename(folderPath);
-
-    // Create a ValueNotifier to dynamically update status text inside the dialog
-    final ValueNotifier<String> statusNotifier = ValueNotifier<String>('Preparing folder import...');
+    final ValueNotifier<String> statusNotifier = ValueNotifier<String>(
+      'Preparing folder import...',
+    );
 
     try {
-      // 3. Invoke the uploading dialog with real-time progress callbacks
       if (mounted) {
         await UploadingDialog.show(
           context,
@@ -106,10 +99,11 @@ class _FileManagerPageState extends State<FileManagerPage> {
               },
             );
             debugPrint(
-                '[FileManager] Successfully imported folder as group ID: $createdGroupId');
+              '[FileManager] Successfully imported folder as group ID: $createdGroupId',
+            );
           },
           title: 'Importing Folder...',
-          message: 'Mirroring directory structure...', // Initial message
+          message: 'Mirroring directory structure...',
         );
       }
 
@@ -190,142 +184,63 @@ class _FileManagerPageState extends State<FileManagerPage> {
     final isDesktop =
         !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
-    return Scaffold(
-      backgroundColor: theme.outerBackgroundColor,
-      body: Stack(
-        children: [
-          if (isDesktop)
-            Positioned.fill(
-              child: DragToMoveArea(
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Container(
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: theme.cardBackgroundColor,
-                  borderRadius: BorderRadius.circular(theme.cardCornerRadius),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final bool isNarrow = constraints.maxWidth < 700;
+    return Stack(
+      children: [
+        if (isDesktop)
+          Positioned.fill(
+            child: DragToMoveArea(child: Container(color: Colors.transparent)),
+          ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isNarrow = constraints.maxWidth < 700;
 
-                    return Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24.0,
-                            vertical: 8.0,
-                          ),
-                          child: HeaderBar(
-                            onTransferServiceChanged: (value) {
-                              if (mounted) {
-                                setState(() {});
-                              }
-                            },
+            return Column(
+              children: [
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: theme.outerBackgroundColor,
+                ),
+                if (isNarrow)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 12.0,
+                    ),
+                    child: Center(
+                      child: LibrarySegmentedControl(
+                        selectedIndex: _selectedLibraryIndex,
+                        onItemSelected: _handleSelectIndex,
+                      ),
+                    ),
+                  ),
+                Expanded(
+                  child: Row(
+                    children: [
+                      if (!isNarrow) ...[
+                        SizedBox(
+                          width: 200,
+                          child: LibrarySidebar(
+                            selectedIndex: _selectedLibraryIndex,
+                            onItemSelected: _handleSelectIndex,
+                            theme: theme,
                           ),
                         ),
-                        Divider(
-                          height: 1,
+                        VerticalDivider(
+                          width: 1,
                           thickness: 1,
                           color: theme.outerBackgroundColor,
                         ),
-                        Expanded(
-                          child: Stack(
-                            children: [
-                              Row(
-                                children: [
-                                  if (!isNarrow) ...[
-                                    SizedBox(
-                                      width: 200,
-                                      child: LibrarySidebar(
-                                        selectedIndex: _selectedLibraryIndex,
-                                        onItemSelected: _handleSelectIndex,
-                                        theme: theme,
-                                      ),
-                                    ),
-                                    VerticalDivider(
-                                      width: 1,
-                                      thickness: 1,
-                                      color: theme.outerBackgroundColor,
-                                    ),
-                                  ],
-                                  Expanded(child: _buildMainContent()),
-                                ],
-                              ),
-                              if (isNarrow)
-                                Positioned(
-                                  left: 20.0,
-                                  top: -8.0,
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: IconButton(
-                                      icon: Icon(
-                                        BootstrapIcons.list,
-                                        size: 20.0,
-                                        color: theme.textPrimary,
-                                      ),
-                                      onPressed: () {
-                                        setState(() {
-                                          _isDrawerOpen = !_isDrawerOpen;
-                                        });
-                                      },
-                                      splashRadius: 20,
-                                      tooltip: 'Toggle Sidebar',
-                                    ),
-                                  ),
-                                ),
-                              if (isNarrow && _isDrawerOpen)
-                                GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      _isDrawerOpen = false;
-                                    });
-                                  },
-                                  child: Container(
-                                    color: Colors.black.withValues(alpha: 0.2),
-                                  ),
-                                ),
-                              if (isNarrow)
-                                AnimatedPositioned(
-                                  duration: const Duration(milliseconds: 220),
-                                  curve: Curves.easeOutCubic,
-                                  left: _isDrawerOpen ? 0 : -220,
-                                  top: 0,
-                                  bottom: 0,
-                                  width: 200,
-                                  child: Material(
-                                    color: theme.cardBackgroundColor,
-                                    elevation: 8,
-                                    child: LibrarySidebar(
-                                      selectedIndex: _selectedLibraryIndex,
-                                      onItemSelected: _handleSelectIndex,
-                                      theme: theme,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
                       ],
-                    );
-                  },
+                      Expanded(child: _buildMainContent()),
+                    ],
+                  ),
                 ),
-              ),
-            ),
-          ),
-        ],
-      ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -343,27 +258,23 @@ class _FileManagerPageState extends State<FileManagerPage> {
   Future<void> _handlePlayTrack(String path) async {
     playbackControlKey.currentState?.onPlayTrackAndCheckExistence(path);
     await Future.delayed(const Duration(milliseconds: 50));
-    AppRouter.instance.goToPage(0);
+    AppRouter.instance.goToRoute(AppRoute.player);
   }
 
   Future<void> _handleMoveToNextTrack(String path) async {
-    final parentContext = Navigator.of(
-      context,
-      rootNavigator: true,
-    ).context;
+    final parentContext = Navigator.of(context, rootNavigator: true).context;
 
     playlistManager.addFileNextToCurrent(path);
     playlistPanelKey?.currentState?.refresh();
     await Future.delayed(const Duration(milliseconds: 50));
-    AppRouter.instance.goToPage(0);
+    AppRouter.instance.goToRoute(AppRoute.player);
 
     if (parentContext.mounted) {
       PlaylistPanel.show(
         parentContext,
         playlistManager: playlistManager,
         audioController: audioPlayerController,
-        onPlayTrack:
-        playbackControlKey.currentState?.onPlayTrack ?? (index) {},
+        onPlayTrack: playbackControlKey.currentState?.onPlayTrack ?? (index) {},
       );
     }
   }

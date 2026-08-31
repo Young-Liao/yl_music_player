@@ -42,7 +42,6 @@ class FileListView extends StatefulWidget {
 
 class _FileListViewState extends State<FileListView> {
   final ScrollController _horizontalScrollController = ScrollController();
-  // Average height of each ListView row in pixels
   static const double _itemExtent = 56.0;
   bool _isFetchingWindow = false;
 
@@ -69,7 +68,6 @@ class _FileListViewState extends State<FileListView> {
     final double offset = widget.scrollController.offset;
     final double viewportHeight = widget.scrollController.position.viewportDimension;
 
-    // Calculate window bounds with a small overscan buffer
     final int windowL = (offset / _itemExtent).floor() - 2;
     final int windowR = ((offset + viewportHeight) / _itemExtent).ceil() + 2;
 
@@ -78,7 +76,7 @@ class _FileListViewState extends State<FileListView> {
     widget.fileListManager.ensureWindowCached(windowL, windowR).then((hasUpdated) {
       _isFetchingWindow = false;
       if (mounted && hasUpdated) {
-        setState(() {}); // Rebuild UI with newly populated cache metadata
+        setState(() {});
       }
     }).catchError((_) {
       _isFetchingWindow = false;
@@ -112,7 +110,7 @@ class _FileListViewState extends State<FileListView> {
           // Responsive Header Bar
           LayoutBuilder(
             builder: (context, constraints) {
-              final bool isCompact = constraints.maxWidth < 380;
+              final bool isCompactHeader = constraints.maxWidth < 380;
 
               final titleWidget = Text(
                 'Music Files Items',
@@ -138,8 +136,7 @@ class _FileListViewState extends State<FileListView> {
                   MenuAnchor(
                     style: MenuStyle(
                       elevation: const WidgetStatePropertyAll(4),
-                      shadowColor:
-                      const WidgetStatePropertyAll(Colors.black12),
+                      shadowColor: const WidgetStatePropertyAll(Colors.black12),
                       surfaceTintColor: const WidgetStatePropertyAll(
                         Colors.transparent,
                       ),
@@ -190,8 +187,7 @@ class _FileListViewState extends State<FileListView> {
                         child: Container(
                           width: 100,
                           height: 32,
-                          padding:
-                          const EdgeInsets.symmetric(horizontal: 10.0),
+                          padding: const EdgeInsets.symmetric(horizontal: 10.0),
                           alignment: Alignment.centerLeft,
                           decoration: BoxDecoration(
                             color: Colors.transparent,
@@ -262,7 +258,7 @@ class _FileListViewState extends State<FileListView> {
                 ],
               );
 
-              if (isCompact) {
+              if (isCompactHeader) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -285,17 +281,19 @@ class _FileListViewState extends State<FileListView> {
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                const double minTableWidth = 550.0;
-                final tableWidth = constraints.maxWidth > minTableWidth
-                    ? constraints.maxWidth
-                    : minTableWidth;
+                // When width drops below 480, switch to inline author-album mode without forced horizontal scroll
+                final bool isNarrow = constraints.maxWidth < 480.0;
+                final double tableWidth = isNarrow ? constraints.maxWidth : constraints.maxWidth;
 
                 return Scrollbar(
                   controller: _horizontalScrollController,
-                  thumbVisibility: true,
+                  thumbVisibility: !isNarrow,
                   child: SingleChildScrollView(
                     controller: _horizontalScrollController,
                     scrollDirection: Axis.horizontal,
+                    physics: isNarrow
+                        ? const NeverScrollableScrollPhysics()
+                        : const ClampingScrollPhysics(),
                     child: SizedBox(
                       width: tableWidth,
                       child: Column(
@@ -325,17 +323,18 @@ class _FileListViewState extends State<FileListView> {
                                 Expanded(
                                   flex: 5,
                                   child: Text(
-                                    'TITLE / AUTHOR',
+                                    isNarrow ? 'TRACK INFO' : 'TITLE / AUTHOR',
                                     style: _headerTextStyle(theme),
                                   ),
                                 ),
-                                Expanded(
-                                  flex: 3,
-                                  child: Text(
-                                    'ALBUM',
-                                    style: _headerTextStyle(theme),
+                                if (!isNarrow)
+                                  Expanded(
+                                    flex: 3,
+                                    child: Text(
+                                      'ALBUM',
+                                      style: _headerTextStyle(theme),
+                                    ),
                                   ),
-                                ),
                                 const SizedBox(width: 32),
                               ],
                             ),
@@ -364,6 +363,7 @@ class _FileListViewState extends State<FileListView> {
                                   track,
                                   index,
                                   isActive,
+                                  isNarrow,
                                 );
                               },
                             ),
@@ -396,8 +396,16 @@ class _FileListViewState extends State<FileListView> {
       TrackMetadataItem track,
       int index,
       bool isActive,
+      bool isNarrow,
       ) {
     final bool isSelected = widget.selectedIndices.contains(index);
+
+    // Format subtext string depending on available layout mode
+    final String subtext = isNarrow
+        ? (track.album.isNotEmpty
+        ? '${track.artist} — ${track.album}'
+        : track.artist)
+        : track.artist;
 
     return Material(
       color: isSelected
@@ -454,7 +462,7 @@ class _FileListViewState extends State<FileListView> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            track.artist,
+                            subtext,
                             style: TextStyle(
                               fontSize: 12.0,
                               fontWeight: FontWeight.w500,
@@ -469,19 +477,20 @@ class _FileListViewState extends State<FileListView> {
                   ],
                 ),
               ),
-              Expanded(
-                flex: 3,
-                child: Text(
-                  track.album.isNotEmpty ? track.album : '—',
-                  style: TextStyle(
-                    fontSize: 13.0,
-                    fontWeight: FontWeight.w500,
-                    color: theme.textSecondary,
+              if (!isNarrow)
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    track.album.isNotEmpty ? track.album : '—',
+                    style: TextStyle(
+                      fontSize: 13.0,
+                      fontWeight: FontWeight.w500,
+                      color: theme.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
               SizedBox(
                 width: 32,
                 child: PopupMenuButton<String>(

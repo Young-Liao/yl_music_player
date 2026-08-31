@@ -48,20 +48,16 @@ class TrackTile extends StatelessWidget {
     if (track.compressedArtwork != null &&
         track.compressedArtwork!.isNotEmpty) {
       return ClipRRect(
-        borderRadius:
-        BorderRadius.circular(5),
+        borderRadius: BorderRadius.circular(5),
         child: Image.memory(
           track.compressedArtwork!,
           width: 28,
           height: 28,
           fit: BoxFit.cover,
-          errorBuilder:
-              (_, _, _) => Icon(
+          errorBuilder: (_, _, _) => Icon(
             Icons.music_note_rounded,
             size: 18,
-            color: isActive
-                ? theme.primaryColor
-                : theme.textMuted,
+            color: isActive ? theme.primaryColor : theme.textMuted,
           ),
         ),
       );
@@ -70,42 +66,19 @@ class TrackTile extends StatelessWidget {
     return Icon(
       Icons.music_note_rounded,
       size: 18,
-      color: isActive
-          ? theme.primaryColor
-          : theme.textMuted,
+      color: isActive ? theme.primaryColor : theme.textMuted,
     );
   }
 
   Widget _buildLeadingArea() {
-    // IMPORTANT:
-    //
-    // Group:
-    //
-    //   [arrow 32] [8] [folder 28]
-    //
-    // Track:
-    //
-    //   [empty 32] [8] [artwork 28]
-    //
-    // Therefore folder and artwork have exactly
-    // the same horizontal position.
-
     return SizedBox(
-      width:
-      _arrowWidth +
-          _leadingGap +
-          _iconWidth,
+      width: _arrowWidth + _leadingGap + _iconWidth,
       height: 32,
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(
-            width: _arrowWidth,
-          ),
-
-          const SizedBox(
-            width: _leadingGap,
-          ),
-
+          const SizedBox(width: _arrowWidth),
+          const SizedBox(width: _leadingGap),
           SizedBox(
             width: _iconWidth,
             height: _iconWidth,
@@ -129,8 +102,7 @@ class TrackTile extends StatelessWidget {
           color: theme.textMuted,
         ),
         padding: EdgeInsets.zero,
-        constraints:
-        const BoxConstraints(),
+        constraints: const BoxConstraints(),
         onSelected: (value) async {
           switch (value) {
             case 'play_now':
@@ -138,9 +110,7 @@ class TrackTile extends StatelessWidget {
               break;
 
             case 'play_next':
-              onMoveToNext?.call(
-                track.filePath,
-              );
+              onMoveToNext?.call(track.filePath);
               break;
 
             case 'move_to_group':
@@ -151,39 +121,29 @@ class TrackTile extends StatelessWidget {
               break;
 
             case 'delete':
-              onDeleteTrack?.call(
-                track.filePath,
-              );
+              onDeleteTrack?.call(track.filePath);
               break;
           }
         },
         itemBuilder: (context) => [
           const PopupMenuItem(
             value: 'play_now',
-            child: Text(
-              'Play Now',
-            ),
+            child: Text('Play Now'),
           ),
           const PopupMenuItem(
             value: 'play_next',
-            child: Text(
-              'Play Next',
-            ),
+            child: Text('Play Next'),
           ),
           const PopupMenuItem(
             value: 'move_to_group',
-            child: Text(
-              'Move to Group...',
-            ),
+            child: Text('Move to Group...'),
           ),
           const PopupMenuDivider(),
           const PopupMenuItem(
             value: 'delete',
             child: Text(
               'Delete File',
-              style: TextStyle(
-                color: Colors.redAccent,
-              ),
+              style: TextStyle(color: Colors.redAccent),
             ),
           ),
         ],
@@ -193,59 +153,41 @@ class TrackTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String subtitleText = track.album.isNotEmpty
+        ? '${track.artist} — ${track.album}'
+        : track.artist;
+
+    // Cap horizontal indentation at 5 levels max to prevent breaking narrow viewports
+    final double indentPadding = (indentLevel.clamp(0, 5)) * 12.0;
+
     return Material(
       color: isSelected
-          ? theme.primaryColor
-          .withValues(alpha: 0.08)
+          ? theme.primaryColor.withValues(alpha: 0.08)
           : Colors.transparent,
-      borderRadius:
-      BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(8),
       child: InkWell(
-        borderRadius:
-        BorderRadius.circular(8),
-        overlayColor:
-        WidgetStateProperty.resolveWith(
-              (states) {
-            if (states.contains(
-              WidgetState.pressed,
-            )) {
-              return theme.primaryColor
-                  .withValues(
-                alpha: 0.12,
-              );
-            }
-
-            if (states.contains(
-              WidgetState.hovered,
-            )) {
-              return theme.primaryColor
-                  .withValues(
-                alpha: 0.055,
-              );
-            }
-
-            return Colors.transparent;
-          },
-        ),
+        borderRadius: BorderRadius.circular(8),
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return theme.primaryColor.withValues(alpha: 0.12);
+          }
+          if (states.contains(WidgetState.hovered)) {
+            return theme.primaryColor.withValues(alpha: 0.055);
+          }
+          return Colors.transparent;
+        }),
         onTap: isSelectionMode
-            ? () => onToggleTrackSelect
-            ?.call(track.filePath)
-            : () => onPlayTrack(
-          track.filePath,
-        ),
+            ? () => onToggleTrackSelect?.call(track.filePath)
+            : () => onPlayTrack(track.filePath),
         child: Padding(
-          padding:
-          const EdgeInsets.symmetric(
+          padding: const EdgeInsets.symmetric(
             horizontal: 12,
             vertical: 6,
           ),
           child: Row(
+            mainAxisSize: MainAxisSize.max,
             children: [
-              // Indentation.
-              SizedBox(
-                width:
-                indentLevel * 20.0,
-              ),
+              SizedBox(width: indentPadding),
 
               if (isSelectionMode) ...[
                 SizedBox(
@@ -253,90 +195,50 @@ class TrackTile extends StatelessWidget {
                   height: 32,
                   child: Checkbox(
                     value: isSelected,
-                    activeColor:
-                    theme.primaryColor,
+                    activeColor: theme.primaryColor,
                     onChanged: (_) =>
-                        onToggleTrackSelect
-                            ?.call(
-                          track.filePath,
-                        ),
+                        onToggleTrackSelect?.call(track.filePath),
                   ),
                 ),
-                const SizedBox(
-                  width: 8,
-                ),
+                const SizedBox(width: 8),
               ],
 
-              // Same leading slot as GroupNodeTile.
               _buildLeadingArea(),
-
-              const SizedBox(
-                width: 8,
-              ),
+              const SizedBox(width: 8),
 
               Expanded(
-                flex: 5,
                 child: Column(
-                  crossAxisAlignment:
-                  CrossAxisAlignment
-                      .start,
-                  mainAxisAlignment:
-                  MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      track.title.isNotEmpty
-                          ? track.title
-                          : 'Unknown Title',
+                      track.title.isNotEmpty ? track.title : 'Unknown Title',
                       style: TextStyle(
                         fontSize: 13.5,
-                        fontWeight:
-                        FontWeight.w600,
+                        fontWeight: FontWeight.w600,
                         color: isActive
-                            ? theme
-                            .primaryColor
-                            : theme
-                            .textPrimary,
+                            ? theme.primaryColor
+                            : theme.textPrimary,
                       ),
                       maxLines: 1,
-                      overflow:
-                      TextOverflow.ellipsis,
+                      overflow: TextOverflow.ellipsis,
                     ),
-
-                    const SizedBox(
-                      height: 2,
-                    ),
-
+                    const SizedBox(height: 2),
                     Text(
-                      track.artist,
+                      subtitleText,
                       style: TextStyle(
                         fontSize: 11.5,
-                        color:
-                        theme.textSecondary,
+                        color: theme.textSecondary,
                       ),
                       maxLines: 1,
-                      overflow:
-                      TextOverflow.ellipsis,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
 
-              Expanded(
-                flex: 3,
-                child: Text(
-                  track.album.isNotEmpty
-                      ? track.album
-                      : '—',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color:
-                    theme.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow:
-                  TextOverflow.ellipsis,
-                ),
-              ),
+              const SizedBox(width: 8),
 
               _buildMenu(),
             ],

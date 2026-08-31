@@ -72,12 +72,10 @@ class GroupNodeTile extends StatelessWidget {
           maxWidth: 32,
           maxHeight: 32,
         ),
-        visualDensity:
-        VisualDensity.compact,
+        visualDensity: VisualDensity.compact,
         icon: AnimatedRotation(
           turns: isExpanded ? 0.25 : 0.0,
-          duration:
-          const Duration(milliseconds: 150),
+          duration: const Duration(milliseconds: 150),
           child: Icon(
             Icons.chevron_right_rounded,
             size: 18,
@@ -96,23 +94,19 @@ class GroupNodeTile extends StatelessWidget {
       child: Center(
         child: IconButton(
           padding: EdgeInsets.zero,
-          constraints:
-          const BoxConstraints(
+          constraints: const BoxConstraints(
             minWidth: 28,
             minHeight: 28,
             maxWidth: 28,
             maxHeight: 28,
           ),
-          visualDensity:
-          VisualDensity.compact,
+          visualDensity: VisualDensity.compact,
           icon: Icon(
             Icons.folder_rounded,
             size: 20,
             color: theme.primaryColor,
           ),
-          onPressed: isSelectionMode
-              ? null
-              : onNavigate,
+          onPressed: isSelectionMode ? null : onNavigate,
         ),
       ),
     );
@@ -120,17 +114,13 @@ class GroupNodeTile extends StatelessWidget {
 
   Widget _buildLeadingArea() {
     return SizedBox(
-      width:
-      _arrowWidth +
-          _leadingGap +
-          _iconWidth,
+      width: _arrowWidth + _leadingGap + _iconWidth,
       height: 32,
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           _buildArrow(),
-          const SizedBox(
-            width: _leadingGap,
-          ),
+          const SizedBox(width: _leadingGap),
           _buildFolder(),
         ],
       ),
@@ -148,8 +138,7 @@ class GroupNodeTile extends StatelessWidget {
           color: theme.textMuted,
         ),
         padding: EdgeInsets.zero,
-        constraints:
-        const BoxConstraints(),
+        constraints: const BoxConstraints(),
         onSelected: (value) {
           switch (value) {
             case 'add_subgroup':
@@ -172,30 +161,22 @@ class GroupNodeTile extends StatelessWidget {
         itemBuilder: (context) => [
           const PopupMenuItem(
             value: 'add_subgroup',
-            child: Text(
-              'Add Sub-Group',
-            ),
+            child: Text('Add Sub-Group'),
           ),
           const PopupMenuItem(
             value: 'move',
-            child: Text(
-              'Move Group',
-            ),
+            child: Text('Move Group'),
           ),
           const PopupMenuItem(
             value: 'rename',
-            child: Text(
-              'Rename',
-            ),
+            child: Text('Rename'),
           ),
           const PopupMenuDivider(),
           const PopupMenuItem(
             value: 'delete',
             child: Text(
               'Delete Group',
-              style: TextStyle(
-                color: Colors.redAccent,
-              ),
+              style: TextStyle(color: Colors.redAccent),
             ),
           ),
         ],
@@ -205,63 +186,41 @@ class GroupNodeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Cap horizontal indentation at 5 levels max to prevent breaking narrow viewports
+    final double indentPadding = (indentLevel.clamp(0, 5)) * 12.0;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Material(
           color: isSelected
-              ? theme.primaryColor
-              .withValues(alpha: 0.08)
+              ? theme.primaryColor.withValues(alpha: 0.08)
               : Colors.transparent,
-          borderRadius:
-          BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(8),
           child: InkWell(
-            borderRadius:
-            BorderRadius.circular(8),
-            overlayColor:
-            WidgetStateProperty.resolveWith(
-                  (states) {
-                if (states.contains(
-                  WidgetState.pressed,
-                )) {
-                  return theme.primaryColor
-                      .withValues(
-                    alpha: 0.12,
-                  );
-                }
-
-                if (states.contains(
-                  WidgetState.hovered,
-                )) {
-                  return theme.primaryColor
-                      .withValues(
-                    alpha: 0.055,
-                  );
-                }
-
-                return Colors.transparent;
-              },
-            ),
+            borderRadius: BorderRadius.circular(8),
+            overlayColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.pressed)) {
+                return theme.primaryColor.withValues(alpha: 0.12);
+              }
+              if (states.contains(WidgetState.hovered)) {
+                return theme.primaryColor.withValues(alpha: 0.055);
+              }
+              return Colors.transparent;
+            }),
             onTap: isSelectionMode
-                ? () =>
-                onToggleSelect?.call(
-                  group,
-                )
+                ? () => onToggleSelect?.call(group)
                 : onNavigate,
             child: Padding(
-              padding:
-              const EdgeInsets.symmetric(
+              padding: const EdgeInsets.symmetric(
                 horizontal: 12.0,
                 vertical: 6.0,
               ),
               child: Row(
+                mainAxisSize: MainAxisSize.max,
                 children: [
-                  // Indentation applies to the complete
-                  // leading structure.
-                  SizedBox(
-                    width:
-                    indentLevel * 20.0,
-                  ),
+                  SizedBox(width: indentPadding),
 
                   if (isSelectionMode) ...[
                     SizedBox(
@@ -269,58 +228,48 @@ class GroupNodeTile extends StatelessWidget {
                       height: 32,
                       child: Checkbox(
                         value: isSelected,
-                        activeColor:
-                        theme.primaryColor,
-                        onChanged: (_) =>
-                            onToggleSelect
-                                ?.call(group),
+                        activeColor: theme.primaryColor,
+                        onChanged: (_) => onToggleSelect?.call(group),
                       ),
                     ),
-                    const SizedBox(
-                      width: 8,
-                    ),
+                    const SizedBox(width: 8),
                   ],
 
-                  // arrow + folder
                   _buildLeadingArea(),
-
-                  const SizedBox(
-                    width: 8,
-                  ),
+                  const SizedBox(width: 8),
 
                   Expanded(
-                    flex: 5,
-                    child: Text(
-                      group.entity.name,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight:
-                        FontWeight.w600,
-                        color:
-                        theme.textPrimary,
-                      ),
-                      maxLines: 1,
-                      overflow:
-                      TextOverflow.ellipsis,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          group.entity.name,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: theme.textPrimary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${group.totalTracks} tracks',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                            color: theme.textSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
 
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      '${group.totalTracks} tracks',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight:
-                        FontWeight.w500,
-                        color:
-                        theme.textSecondary,
-                      ),
-                      maxLines: 1,
-                      overflow:
-                      TextOverflow.ellipsis,
-                    ),
-                  ),
+                  const SizedBox(width: 8),
 
                   _buildMenu(),
                 ],
@@ -330,7 +279,6 @@ class GroupNodeTile extends StatelessWidget {
         ),
 
         if (isExpanded) ...[
-          // Subgroups.
           ...group.subGroups.map(
                 (sub) => buildChildGroup(
               sub,
@@ -338,7 +286,6 @@ class GroupNodeTile extends StatelessWidget {
             ),
           ),
 
-          // Tracks.
           ...tracks.map(
                 (track) => buildChildTrack(
               track,

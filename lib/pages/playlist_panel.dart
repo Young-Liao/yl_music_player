@@ -133,10 +133,10 @@ class PlaylistPanelState extends State<PlaylistPanel> {
   }
 
   Future<List<String>?> _showFileManagerModal(BuildContext context) async {
-    AppRouter.instance.goToPage(1);
+    AppRouter.instance.goToRoute(AppRoute.fileManager);
     final ans =
     await fileManagerPageKey.currentState?.selectTracksInteractively();
-    AppRouter.instance.goToPage(0);
+    AppRouter.instance.goToRoute(AppRoute.player);
     return ans;
   }
 

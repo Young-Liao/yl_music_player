@@ -55,7 +55,7 @@ class _GroupsWindowState extends State<GroupsWindow> {
 
   bool get activeSelectionMode =>
       widget.isSelectionMode ||
-          widget.selectionController.isLanTransferSelection;
+      widget.selectionController.isLanTransferSelection;
 
   @override
   void initState() {
@@ -173,73 +173,84 @@ class _GroupsWindowState extends State<GroupsWindow> {
         final selectedCount =
             _selectedGroups.length + _selectedTrackPaths.length;
 
-        return Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            children: [
-              FileManagerActionBar(
-                isActiveSelectionMode: activeSelectionMode,
-                isLanTransferSelection:
-                widget.selectionController.isLanTransferSelection,
-                isSubjectiveSelection: widget.isSubjectiveSelection,
-                selectedCount: selectedCount,
-                onToggleSelection: () {
-                  if (widget.selectionController.isLanTransferSelection) {
-                    widget.selectionController.cancelLanTransferMode();
-                  } else {
-                    widget.onToggleSelectionMode();
-                  }
-                },
-                onConfirmSelection: _handleConfirmSelection,
-                onBatchDelete: _handleBatchDelete,
-                onLanTransferPressed: () {
-                  widget.selectionController.startLanTransferMode();
-                },
-                onUploadFilesPressed: widget.onUploadFilesPressed,
-                onUploadFolderPressed: widget.onUploadFolderPressed,
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isNarrow = constraints.maxWidth < 700;
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                isNarrow ? 0.0 : 20.0,
+                0.0,
+                0.0,
+                0.0,
               ),
-              if (activeSelectionMode) ...[
-                const SizedBox(height: 8.0),
-                Row(
-                  children: [
-                    ElevatedButton.icon(
-                      icon: const Icon(
-                        Icons.drive_file_move_outlined,
-                        size: 16,
-                      ),
-                      label: const Text('MOVE TO GROUPS'),
-                      onPressed: selectedCount > 0
-                          ? _handleBatchMoveToGroup
-                          : null,
+              child: Column(
+                children: [
+                  FileManagerActionBar(
+                    isActiveSelectionMode: activeSelectionMode,
+                    isLanTransferSelection:
+                        widget.selectionController.isLanTransferSelection,
+                    isSubjectiveSelection: widget.isSubjectiveSelection,
+                    selectedCount: selectedCount,
+                    onToggleSelection: () {
+                      if (widget.selectionController.isLanTransferSelection) {
+                        widget.selectionController.cancelLanTransferMode();
+                      } else {
+                        widget.onToggleSelectionMode();
+                      }
+                    },
+                    onConfirmSelection: _handleConfirmSelection,
+                    onBatchDelete: _handleBatchDelete,
+                    onLanTransferPressed: () {
+                      widget.selectionController.startLanTransferMode();
+                    },
+                    onUploadFilesPressed: widget.onUploadFilesPressed,
+                    onUploadFolderPressed: widget.onUploadFolderPressed,
+                  ),
+                  if (activeSelectionMode) ...[
+                    const SizedBox(height: 8.0),
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          icon: const Icon(
+                            Icons.drive_file_move_outlined,
+                            size: 16,
+                          ),
+                          label: const Text('MOVE TO GROUPS'),
+                          onPressed: selectedCount > 0
+                              ? _handleBatchMoveToGroup
+                              : null,
+                        ),
+                      ],
                     ),
                   ],
-                ),
-              ],
-              const SizedBox(height: 12.0),
-              Expanded(
-                child: _isLoading
-                    ? Center(
-                  child: CircularProgressIndicator(
-                    color: theme.primaryColor,
+                  const SizedBox(height: 12.0),
+                  Expanded(
+                    child: _isLoading
+                        ? Center(
+                            child: CircularProgressIndicator(
+                              color: theme.primaryColor,
+                            ),
+                          )
+                        : GroupListView(
+                            key: _groupListViewKey,
+                            rootNodes: _rootNodes,
+                            scrollController: _scrollController,
+                            onPlayTrack: widget.onPlayTrack,
+                            onMoveToNext: widget.onMoveToNext ?? (path) {},
+                            isSelectionMode: activeSelectionMode,
+                            selectedGroups: _selectedGroups,
+                            selectedTrackPaths: _selectedTrackPaths,
+                            onToggleGroupSelect: _toggleGroupSelect,
+                            onToggleTrackSelect: _toggleTrackSelect,
+                            areAllSelected: _areAllSelected,
+                            onToggleSelectAll: _toggleSelectAll,
+                          ),
                   ),
-                )
-                    : GroupListView(
-                  key: _groupListViewKey,
-                  rootNodes: _rootNodes,
-                  scrollController: _scrollController,
-                  onPlayTrack: widget.onPlayTrack,
-                  onMoveToNext: widget.onMoveToNext ?? (path) {},
-                  isSelectionMode: activeSelectionMode,
-                  selectedGroups: _selectedGroups,
-                  selectedTrackPaths: _selectedTrackPaths,
-                  onToggleGroupSelect: _toggleGroupSelect,
-                  onToggleTrackSelect: _toggleTrackSelect,
-                  areAllSelected: _areAllSelected,
-                  onToggleSelectAll: _toggleSelectAll,
-                ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );

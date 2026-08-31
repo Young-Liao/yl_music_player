@@ -14,7 +14,6 @@ class FileManagerActionBar extends StatelessWidget {
   final VoidCallback onBatchDelete;
   final VoidCallback onLanTransferPressed;
 
-  // Replaced single upload callback with separate file and folder callbacks
   final VoidCallback onUploadFilesPressed;
   final VoidCallback onUploadFolderPressed;
 
@@ -43,139 +42,143 @@ class FileManagerActionBar extends StatelessWidget {
       builder: (context, constraints) {
         final bool isCompact = constraints.maxWidth < 520;
 
+        // Primary Upload Action Button
+        Widget buildUploadButton() {
+          final button = ElevatedButton.icon(
+            onPressed: null,
+            icon: const Icon(BootstrapIcons.upload, size: 14.0),
+            label: const Text('Upload'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.primaryColor,
+              foregroundColor: Colors.white,
+              disabledForegroundColor: Colors.white,
+              disabledBackgroundColor: theme.primaryColor,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 14.0,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+            ),
+          );
+
+          return PopupMenuButton<String>(
+            offset: const Offset(0, 45),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8.0),
+            ),
+            onSelected: (value) {
+              if (value == 'files') {
+                onUploadFilesPressed();
+              } else if (value == 'folder') {
+                onUploadFolderPressed();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'files',
+                child: Tooltip(
+                  message: 'Directly add files to root',
+                  child: Row(
+                    children: [
+                      Icon(BootstrapIcons.file_earmark_music, size: 16),
+                      SizedBox(width: 10),
+                      Text('Upload File(s)'),
+                    ],
+                  ),
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'folder',
+                child: Tooltip(
+                  message: 'Upload songs and group them by folders',
+                  child: Row(
+                    children: [
+                      Icon(BootstrapIcons.folder_plus, size: 16),
+                      SizedBox(width: 10),
+                      Text('Upload a Folder'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            child: isCompact ? SizedBox(width: double.infinity, child: button) : button,
+          );
+        }
+
+        // Primary Action in Selection Mode
+        Widget buildSelectionPrimaryButton() {
+          final isConfirm = isSubjectiveSelection || isLanTransferSelection;
+          final button = ElevatedButton.icon(
+            onPressed: selectedCount == 0
+                ? null
+                : (isConfirm ? onConfirmSelection : onBatchDelete),
+            icon: Icon(
+              isConfirm ? BootstrapIcons.check_lg : BootstrapIcons.trash,
+              size: 14.0,
+            ),
+            label: Text(
+              isConfirm
+                  ? (isCompact ? 'OK ($selectedCount)' : 'OK ($selectedCount Selected)')
+                  : (isCompact ? 'Delete ($selectedCount)' : 'Delete Selected ($selectedCount)'),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isConfirm ? theme.primaryColor : Colors.redAccent,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 14.0,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+            ),
+          );
+
+          return isCompact ? SizedBox(width: double.infinity, child: button) : button;
+        }
+
         return Row(
           children: [
+            // Select / Cancel Action Button
             ActionButton(
               icon: isActiveSelectionMode
                   ? BootstrapIcons.x_circle
                   : BootstrapIcons.check2_square,
               label: isActiveSelectionMode ? 'Cancel' : 'Select',
-              showLabel: !isCompact,
+              showLabel: true,
               onPressed: onToggleSelection,
               theme: theme,
             ),
-            if (isActiveSelectionMode) ...[
-              const SizedBox(width: 8.0),
-              if (isSubjectiveSelection || isLanTransferSelection)
-                ElevatedButton.icon(
-                  onPressed: selectedCount == 0 ? null : onConfirmSelection,
-                  icon: const Icon(BootstrapIcons.check_lg, size: 14.0),
-                  label: Text(
-                    isCompact
-                        ? 'OK ($selectedCount)'
-                        : 'OK ($selectedCount Selected)',
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.primaryColor,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 14.0,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                  ),
-                )
-              else
-                ElevatedButton.icon(
-                  onPressed: selectedCount == 0 ? null : onBatchDelete,
-                  icon: const Icon(BootstrapIcons.trash, size: 14.0),
-                  label: Text(
-                    isCompact ? '$selectedCount' : 'Delete Selected ($selectedCount) (Tracks Only)',
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 14.0,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                  ),
-                ),
-            ],
-            const Spacer(),
-            if (!isActiveSelectionMode) ...[
-              const SizedBox(width: 8.0),
-              if (isTransferEnabled)
-                ActionButton(
-                  icon: BootstrapIcons.display,
-                  label: 'LAN Transfer',
-                  showLabel: !isCompact,
-                  onPressed: onLanTransferPressed,
-                  theme: theme,
-                ),
-              const SizedBox(width: 8.0),
 
-              // Upload Button upgraded with PopupMenuButton and Tooltips
-              PopupMenuButton<String>(
-                offset: const Offset(0, 45),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                onSelected: (value) {
-                  if (value == 'files') {
-                    onUploadFilesPressed();
-                  } else if (value == 'folder') {
-                    onUploadFolderPressed();
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'files',
-                    child: Tooltip(
-                      message: 'Directly add files to root',
-                      child: Row(
-                        children: [
-                          Icon(BootstrapIcons.file_earmark_music, size: 16),
-                          SizedBox(width: 10),
-                          Text('Upload File(s)'),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'folder',
-                    child: Tooltip(
-                      message: 'Upload songs and group them by folders',
-                      child: Row(
-                        children: [
-                          Icon(BootstrapIcons.folder_plus, size: 16),
-                          SizedBox(width: 10),
-                          Text('Upload a Folder'),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-                child: ElevatedButton.icon(
-                  onPressed: null, // Handled by PopupMenuButton wrapper, keeps button styling active
-                  icon: const Icon(BootstrapIcons.upload, size: 14.0),
-                  label: isCompact
-                      ? const SizedBox.shrink()
-                      : const Text('Upload'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.primaryColor,
-                    foregroundColor: Colors.white,
-                    disabledForegroundColor: Colors.white,
-                    disabledBackgroundColor: theme.primaryColor,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 14.0,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                  ),
-                ),
+            const SizedBox(width: 8.0),
+
+            // LAN Transfer Button (icon-only in compact, full label in desktop)
+            if (!isActiveSelectionMode && isTransferEnabled) ...[
+              ActionButton(
+                icon: BootstrapIcons.display,
+                label: 'LAN Transfer',
+                showLabel: !isCompact,
+                onPressed: onLanTransferPressed,
+                theme: theme,
               ),
+              const SizedBox(width: 8.0),
             ],
+
+            if (!isCompact) const Spacer(),
+
+            // Primary action fills remaining width in compact view
+            if (isActiveSelectionMode)
+              isCompact
+                  ? Expanded(child: buildSelectionPrimaryButton())
+                  : buildSelectionPrimaryButton()
+            else
+              isCompact
+                  ? Expanded(child: buildUploadButton())
+                  : buildUploadButton(),
           ],
         );
       },
