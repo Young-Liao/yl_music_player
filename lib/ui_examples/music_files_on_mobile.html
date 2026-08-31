@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YL Music Player - Mobile</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+          --bg-color: #f8f9fc;
+          --card-bg: #ffffff;
+          --text-primary: #1e293b;
+          --text-secondary: #64748b;
+          --primary-color: #6366f1;
+          --primary-light: #e0e7ff;
+          --border-color: #e2e8f0;
+        }
+
+        * {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+          font-family: 'Inter', sans-serif;
+        }
+
+        body {
+          background-color: var(--bg-color);
+          color: var(--text-primary);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 100vh;
+          padding: 12px;
+        }
+
+        /* Mobile Frame Mockup Container */
+        .mobile-frame {
+          width: 100%;
+          max-width: 390px;
+          height: 844px;
+          background-color: var(--bg-color);
+          border-radius: 40px;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          border: 8px solid #1e293b;
+          position: relative;
+        }
+
+        /* Top App Bar */
+        .app-header {
+          padding: 16px 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background-color: var(--card-bg);
+          border-bottom: 1px solid var(--border-color);
+        }
+
+        .app-title {
+          font-size: 16px;
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+
+        .header-actions {
+          display: flex;
+          gap: 12px;
+          align-items: center;
+        }
+
+        .icon-btn {
+          background: none;
+          border: none;
+          font-size: 18px;
+          color: var(--text-secondary);
+          cursor: pointer;
+        }
+
+        /* Sub-navigation tabs (Player / File Manager / Settings) */
+        .view-switcher {
+          display: flex;
+          background: #f1f5f9;
+          padding: 4px;
+          border-radius: 12px;
+          margin: 16px 20px 8px 20px;
+        }
+
+        .switcher-btn {
+          flex: 1;
+          padding: 8px 4px;
+          text-align: center;
+          font-size: 12px;
+          font-weight: 600;
+          border: none;
+          background: transparent;
+          color: var(--text-secondary);
+          border-radius: 8px;
+          cursor: pointer;
+        }
+
+        .switcher-btn.active {
+          background: var(--card-bg);
+          color: var(--primary-color);
+          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        /* Main Content Area */
+        .main-content {
+          flex: 1;
+          padding: 0 20px 20px 20px;
+          overflow-y: auto;
+        }
+
+        .section-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 14px;
+        }
+
+        .section-title {
+          font-size: 18px;
+          font-weight: 700;
+        }
+
+        .action-row {
+          display: flex;
+          gap: 8px;
+          margin-bottom: 16px;
+        }
+
+        .btn-primary, .btn-outline {
+          padding: 8px 14px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          cursor: pointer;
+        }
+
+        .btn-primary {
+          background-color: var(--primary-color);
+          color: white;
+          border: none;
+          flex: 1;
+          justify-content: center;
+        }
+
+        .btn-outline {
+          background-color: var(--card-bg);
+          color: var(--text-primary);
+          border: 1px solid var(--border-color);
+        }
+
+        /* Track List Style */
+        .track-list {
+          background: var(--card-bg);
+          border-radius: 16px;
+          padding: 8px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+          border: 1px solid var(--border-color);
+        }
+
+        .track-item {
+          display: flex;
+          align-items: center;
+          padding: 10px;
+          border-radius: 10px;
+          transition: background 0.2s;
+          gap: 12px;
+        }
+
+        .track-item:hover {
+          background: #f8fafc;
+        }
+
+        .track-thumb {
+          width: 48px;
+          height: 48px;
+          border-radius: 8px;
+          object-fit: cover;
+        }
+
+        .track-info {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .track-name {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--text-primary);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .track-artist {
+          font-size: 11px;
+          color: var(--text-secondary);
+          margin-top: 2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .track-menu-btn {
+          background: none;
+          border: none;
+          color: var(--text-secondary);
+          padding: 8px;
+          cursor: pointer;
+        }
+
+        /* Bottom Mobile Navigation Bar */
+        .bottom-nav {
+          background: var(--card-bg);
+          border-top: 1px solid var(--border-color);
+          display: flex;
+          justify-content: space-around;
+          padding: 10px 0 24px 0;
+        }
+
+        .nav-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+          text-decoration: none;
+          color: var(--text-secondary);
+          font-size: 10px;
+          font-weight: 500;
+        }
+
+        .nav-item.active {
+          color: var(--primary-color);
+        }
+
+        .nav-item i {
+          font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="mobile-frame">
+    <!-- Top Header -->
+    <header class="app-header">
+        <div class="app-title">YL Music Player</div>
+        <div class="header-actions">
+            <button class="icon-btn"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>
+            <button class="icon-btn"><i class="fa-solid fa-sun"></i></button>
+        </div>
+    </header>
+
+    <!-- Top Switcher (Player / File Manager / Settings) -->
+    <div class="view-switcher">
+        <button class="switcher-btn">Player</button>
+        <button class="switcher-btn active">File Manager</button>
+        <button class="switcher-btn">Settings</button>
+    </div>
+
+    <!-- Content -->
+    <main class="main-content">
+        <div class="section-header">
+            <h2 class="section-title">Music Files</h2>
+        </div>
+
+        <div class="action-row">
+            <button class="btn-outline"><i class="fa-regular fa-square-check"></i> Select</button>
+            <button class="btn-primary"><i class="fa-solid fa-upload"></i> Upload</button>
+        </div>
+
+        <div class="track-list">
+            <!-- Track 1 -->
+            <div class="track-item">
+                <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&auto=format&fit=crop&q=80" alt="Cover" class="track-thumb">
+                <div class="track-info">
+                    <div class="track-name">KNOW ABOUT ME</div>
+                    <div class="track-artist">NMIXX</div>
+                </div>
+                <button class="track-menu-btn"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+            </div>
+
+            <!-- Track 2 -->
+            <div class="track-item">
+                <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=100&auto=format&fit=crop&q=80" alt="Cover" class="track-thumb">
+                <div class="track-info">
+                    <div class="track-name">Legends Never Die 英雄联盟</div>
+                    <div class="track-artist">Against the Current</div>
+                </div>
+                <button class="track-menu-btn"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+            </div>
+
+            <!-- Track 3 -->
+            <div class="track-item">
+                <img src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=100&auto=format&fit=crop&q=80" alt="Cover" class="track-thumb">
+                <div class="track-info">
+                    <div class="track-name">Lone Ranger</div>
+                    <div class="track-artist">Rachel Platten</div>
+                </div>
+                <button class="track-menu-btn"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+            </div>
+
+            <!-- Track 4 -->
+            <div class="track-item">
+                <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&auto=format&fit=crop&q=80" alt="Cover" class="track-thumb">
+                <div class="track-info">
+                    <div class="track-name">Love Is Lonely</div>
+                    <div class="track-artist">NMIXX</div>
+                </div>
+                <button class="track-menu-btn"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Bottom Mobile Navigation Bar -->
+    <nav class="bottom-nav">
+        <a href="#" class="nav-item active">
+            <i class="fa-solid fa-music"></i>
+            <span>Files</span>
+        </a>
+        <a href="#" class="nav-item">
+            <i class="fa-solid fa-list-ul"></i>
+            <span>Playlists</span>
+        </a>
+        <a href="#" class="nav-item">
+            <i class="fa-solid fa-folder"></i>
+            <span>Groups</span>
+        </a>
+    </nav>
+</div>
+
+</body>
+</html>

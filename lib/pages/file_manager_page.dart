@@ -57,17 +57,19 @@ class _FileManagerPageState extends State<FileManagerPage> {
     if (paths.isEmpty) return paths;
 
     // Show uploading dialog with progress for individual files
-    await UploadingDialog.show(
-      context,
-      luego: () async {
-        for (int i = 0; i < paths.length; i++) {
-          fileListManager.addFileAt(paths[i], i);
-        }
-        fileListManager.setSortOption(fileListManager.currentSort);
-      },
-      title: 'Uploading Files...',
-      message: 'Adding ${paths.length} file(s) to root library.',
-    );
+    if (mounted) {
+      await UploadingDialog.show(
+        context,
+        luego: () async {
+          for (int i = 0; i < paths.length; i++) {
+            fileListManager.addFileAt(paths[i], i);
+          }
+          fileListManager.setSortOption(fileListManager.currentSort);
+        },
+        title: 'Uploading Files...',
+        message: 'Adding ${paths.length} file(s) to root library.',
+      );
+    }
 
     if (mounted) setState(() {});
 
@@ -90,21 +92,26 @@ class _FileManagerPageState extends State<FileManagerPage> {
 
     try {
       // 3. Invoke the uploading dialog with real-time progress callbacks
-      await UploadingDialog.show(
-        context,
-        luego: () async {
-          final int createdGroupId = await groupManager.importFolderWithSubgroups(
-            parentGroupName: folderName,
-            rootFolderPath: folderPath,
-            onProgress: (statusMessage, tracksProcessed) {
-              statusNotifier.value = '$statusMessage\nTracks found: $tracksProcessed';
-            },
-          );
-          debugPrint('[FileManager] Successfully imported folder as group ID: $createdGroupId');
-        },
-        title: 'Importing Folder...',
-        message: 'Mirroring directory structure...', // Initial message
-      );
+      if (mounted) {
+        await UploadingDialog.show(
+          context,
+          luego: () async {
+            final int createdGroupId = await groupManager
+                .importFolderWithSubgroups(
+              parentGroupName: folderName,
+              rootFolderPath: folderPath,
+              onProgress: (statusMessage, tracksProcessed) {
+                statusNotifier.value =
+                '$statusMessage\nTracks found: $tracksProcessed';
+              },
+            );
+            debugPrint(
+                '[FileManager] Successfully imported folder as group ID: $createdGroupId');
+          },
+          title: 'Importing Folder...',
+          message: 'Mirroring directory structure...', // Initial message
+        );
+      }
 
       if (mounted) setState(() {});
 

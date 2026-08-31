@@ -12,27 +12,30 @@ class UploadingDialog extends StatelessWidget {
   });
 
   /// Helper static method to easily show this non-dismissible dialog
-  static Future<T> show<T>(BuildContext context, {Future<T> luego()?, String? title, String? message}) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false, // Prevent users from clicking away
-      builder: (BuildContext dialogContext) {
-        return UploadingDialog(
-          title: title ?? 'Uploading & Importing...',
-          message: message ?? 'Please wait while files and folders are processed.',
-        );
-      },
-    );
+  static Future<T> show<T>(BuildContext context, {Future<T> Function()? luego, String? title, String? message}) async {
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false, // Prevent users from clicking away
+        builder: (BuildContext dialogContext) {
+          return UploadingDialog(
+            title: title ?? 'Uploading & Importing...',
+            message: message ??
+                'Please wait while files and folders are processed.',
+          );
+        },
+      );
+    }
 
     // If a task future is supplied, automatically pop the dialog when done
     try {
       final result = await luego?.call();
-      if (Navigator.canPop(context)) {
+      if (context.mounted && Navigator.canPop(context)) {
         Navigator.of(context, rootNavigator: true).pop();
       }
       return result as T;
     } catch (e) {
-      if (Navigator.canPop(context)) {
+      if (context.mounted && Navigator.canPop(context)) {
         Navigator.of(context, rootNavigator: true).pop();
       }
       rethrow;
