@@ -2,14 +2,23 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import '../../data_structures/group.dart';
 import '../../data_structures/track_metadata_item.dart';
 import 'interface.dart';
 
 class SQLiteStorage implements IDatabaseStorage {
   Database? _db;
   Directory? _appSupportDir;
+
+  Database get _database {
+    if (_db == null) {
+      throw StateError('SQLiteStorage has not been initialized.');
+    }
+    return _db!;
+  }
 
   @override
   Future<void> init() async {
@@ -22,8 +31,11 @@ class SQLiteStorage implements IDatabaseStorage {
     }
 
     _appSupportDir = await getApplicationSupportDirectory();
-    debugPrint("App Support Dir: $_appSupportDir");
-    final dbPath = p.join(_appSupportDir!.path, 'yl_music_player', 'app_data.db');
+    final dbPath = p.join(
+      _appSupportDir!.path,
+      'yl_music_player',
+      'app_data.db',
+    );
 
     final dbFile = File(dbPath);
     if (!await dbFile.parent.exists()) {
@@ -32,15 +44,15 @@ class SQLiteStorage implements IDatabaseStorage {
 
     _db = await openDatabase(
       dbPath,
-      version: 3,
+      version: 6,
       onCreate: (Database db, int version) async {
         await _createTables(db);
       },
       onUpgrade: (Database db, int oldVersion, int newVersion) async {
-        if (oldVersion < 3) {
-          // Re-create isolated table structures to guarantee non-overlapping queries
-          await db.execute('DROP TABLE IF EXISTS playlist');
-          await db.execute('DROP TABLE IF EXISTS current_playlist');
+        if (oldVersion < 6) {
+          await db.execute('DROP TABLE IF EXISTS group_items');
+          await db.execute('DROP TABLE IF EXISTS file_groups');
+          await db.execute('DROP TABLE IF EXISTS groups');
           await db.execute('DROP TABLE IF EXISTS file_list');
           await _createTables(db);
         }
@@ -48,30 +60,203 @@ class SQLiteStorage implements IDatabaseStorage {
     );
   }
 
-  String _toRelativePath(String absolutePath) {
-    if (_appSupportDir == null) return absolutePath;
-    final rootPath = _appSupportDir!.path;
-    if (absolutePath.startsWith(rootPath)) {
-      return p.relative(absolutePath, from: rootPath);
-    }
-    if (absolutePath.contains('/Containers/Data/Application/')) {
-      return p.basename(absolutePath);
-    }
-    return absolutePath;
+  Future<void> _createTables(Database db) async {
+    await db.execute('''
+    CREATE TABLE IF NOT EXISTS current_playlist (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      file_path TEXT NOT NULL UNIQUE,
+      track_order INTEGER NOT NULL
+    )
+  ''');
+
+    await db.execute('''
+    CREATE TABLE IF NOT EXISTS metadata_cache (
+      file_path TEXT PRIMARY KEY,
+      title TEXT,
+      artist TEXT,
+      artwork BLOB
+    )
+  ''');
+
+    await db.execute('''
+    CREATE TABLE IF NOT EXISTS groups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      parent_id INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (parent_id) REFERENCES groups (id) ON DELETE CASCADE
+    )
+  ''');
+
+    await db.execute('''
+    INSERT OR IGNORE INTO groups (id, name, parent_id) 
+    VALUES (0, 'Root', 0)
+  ''');
+
+    await db.execute('''
+    CREATE TABLE IF NOT EXISTS file_list (
+      file_path TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      artist TEXT NOT NULL,
+      album TEXT NOT NULL,
+      artwork BLOB,
+      group_id INTEGER NOT NULL DEFAULT 0,
+      track_order INTEGER DEFAULT 0,
+      FOREIGN KEY (group_id) REFERENCES groups (id) ON DELETE SET DEFAULT
+    )
+  ''');
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_file_list_group ON file_list(group_id, track_order)',
+    );
   }
 
-  String _toAbsolutePath(String relativePath) {
-    if (_appSupportDir == null || p.isAbsolute(relativePath)) {
-      return relativePath;
-    }
-    return p.join(_appSupportDir!.path, relativePath);
+  // --- Relational Group Operations ---
+
+  @override
+  Future<int> insertGroup(String name, {int? parentId}) async {
+    return await _database.insert('groups', {
+      'name': name,
+      'parent_id': parentId ?? 0,
+    });
   }
 
-  Database get _database {
-    if (_db == null) {
-      throw StateError('SQLiteStorage has not been initialized. Call init() first.');
+  @override
+  Future<List<GroupEntity>> fetchSubGroups({int? parentId}) async {
+    final targetParentId = parentId ?? 0;
+    final results = await _database.query(
+      'groups',
+      where: 'parent_id = ? AND id != 0',
+      whereArgs: [targetParentId],
+      orderBy: 'name ASC',
+    );
+
+    return results
+        .map(
+          (r) => GroupEntity(
+        id: r['id'] as int,
+        name: r['name'] as String,
+        parentId: r['parent_id'] as int?,
+      ),
+    )
+        .toList();
+  }
+
+  @override
+  Future<void> assignTracksToGroup(List<String> filePaths, int? groupId) async {
+    final db = _database;
+    final targetGroupId = groupId ?? 0;
+    await db.transaction((txn) async {
+      final batch = txn.batch();
+      for (final path in filePaths) {
+        final relPath = _toRelativePath(path);
+        batch.update(
+          'file_list',
+          {'group_id': targetGroupId},
+          where: 'file_path = ?',
+          whereArgs: [relPath],
+        );
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
+  @override
+  Future<void> removeTrackFromGroup(String filePath) async {
+    final relPath = _toRelativePath(filePath);
+    await _database.update(
+      'file_list',
+      {'group_id': 0},
+      where: 'file_path = ?',
+      whereArgs: [relPath],
+    );
+  }
+
+  @override
+  Future<void> renameGroup(int groupId, String newName) async {
+    await _database.update(
+      'groups',
+      {'name': newName},
+      where: 'id = ?',
+      whereArgs: [groupId],
+    );
+  }
+
+  @override
+  Future<int> fetchGroupTrackCount(int groupId) async {
+    final result = await _database.rawQuery(
+      'SELECT COUNT(*) as count FROM file_list WHERE group_id = ?',
+      [groupId],
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  @override
+  Future<List<GroupedTrackMetadataItem>> fetchGroupTracksWindow(
+      int groupId, {
+        required int offset,
+        required int limit,
+      }) async {
+    final results = await _database.query(
+      'file_list',
+      where: 'group_id = ?',
+      whereArgs: [groupId],
+      orderBy: 'track_order ASC, title ASC',
+      limit: limit,
+      offset: offset,
+    );
+
+    final List<GroupedTrackMetadataItem> items = [];
+    for (final row in results) {
+      final storedPath = row['file_path'] as String;
+      final absolutePath = _toAbsolutePath(storedPath);
+
+      items.add(
+        GroupedTrackMetadataItem(
+          id: 0,
+          groupId: groupId,
+          filePath: absolutePath,
+          title: row['title'] as String? ?? '',
+          artist: row['artist'] as String? ?? 'Unknown Artist',
+          album: row['album'] as String? ?? '',
+          compressedArtwork: row['artwork'] as Uint8List?,
+        ),
+      );
     }
-    return _db!;
+    return items;
+  }
+
+  @override
+  Future<void> saveGroupTracksBatch(
+      int groupId,
+      List<GroupedTrackMetadataItem> items,
+      ) async {
+    final db = _database;
+    await db.transaction((txn) async {
+      final batch = txn.batch();
+      for (int i = 0; i < items.length; i++) {
+        final item = items[i];
+        final relPath = _toRelativePath(item.filePath);
+        batch.insert(
+          'file_list',
+          {
+            'file_path': relPath,
+            'title': item.title,
+            'artist': item.artist,
+            'album': item.album,
+            'artwork': item.compressedArtwork,
+            'group_id': groupId,
+            'track_order': i,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
+  @override
+  Future<void> deleteGroup(int groupId) async {
+    await _database.delete('groups', where: 'id = ?', whereArgs: [groupId]);
   }
 
   // --- Current Active Queue / Playlist Operations ---
@@ -94,14 +279,14 @@ class SQLiteStorage implements IDatabaseStorage {
         validPaths.add(absolutePath);
       } else {
         deadRelativePaths.add(storedPath);
-        debugPrint('[SQLiteStorage] Pruning missing current_playlist file: $storedPath');
       }
     }
 
     if (deadRelativePaths.isNotEmpty) {
       await _database.delete(
         'current_playlist',
-        where: 'file_path IN (${List.filled(deadRelativePaths.length, '?').join(',')})',
+        where:
+        'file_path IN (${List.filled(deadRelativePaths.length, '?').join(',')})',
         whereArgs: deadRelativePaths,
       );
     }
@@ -130,7 +315,10 @@ class SQLiteStorage implements IDatabaseStorage {
 
   @override
   Future<List<TrackMetadataItem>> loadFileList() async {
-    final results = await _database.query('file_list');
+    final results = await _database.query(
+      'file_list',
+      orderBy: 'track_order ASC, title ASC',
+    );
     final List<TrackMetadataItem> items = [];
     final List<String> deadRelativePaths = [];
 
@@ -139,23 +327,28 @@ class SQLiteStorage implements IDatabaseStorage {
       final absolutePath = _toAbsolutePath(storedPath);
 
       if (await File(absolutePath).exists()) {
-        items.add(TrackMetadataItem(
-          filePath: absolutePath,
-          title: row['title'] as String? ?? '',
-          artist: row['artist'] as String? ?? 'Unknown Artist',
-          album: row['album'] as String? ?? '',
-          compressedArtwork: row['artwork'] as Uint8List?,
-        ));
+        final groupId = row['group_id'] as int? ?? 0;
+        items.add(
+          GroupedTrackMetadataItem(
+            id: 0,
+            groupId: groupId,
+            filePath: absolutePath,
+            title: row['title'] as String? ?? '',
+            artist: row['artist'] as String? ?? 'Unknown Artist',
+            album: row['album'] as String? ?? '',
+            compressedArtwork: row['artwork'] as Uint8List?,
+          ),
+        );
       } else {
         deadRelativePaths.add(storedPath);
-        debugPrint('[SQLiteStorage] Pruning missing file_list entry: $storedPath');
       }
     }
 
     if (deadRelativePaths.isNotEmpty) {
       await _database.delete(
         'file_list',
-        where: 'file_path IN (${List.filled(deadRelativePaths.length, '?').join(',')})',
+        where:
+        'file_path IN (${List.filled(deadRelativePaths.length, '?').join(',')})',
         whereArgs: deadRelativePaths,
       );
     }
@@ -167,23 +360,48 @@ class SQLiteStorage implements IDatabaseStorage {
   Future<void> saveFileList(List<TrackMetadataItem> items) async {
     final db = _database;
     await db.transaction((txn) async {
-      await txn.delete('file_list');
-      final batch = txn.batch();
-      for (final item in items) {
+      final keepRelPaths = <String>{};
+
+      for (int i = 0; i < items.length; i++) {
+        final item = items[i];
         final relPath = _toRelativePath(item.filePath);
-        batch.insert(
-          'file_list',
-          {
-            'file_path': relPath,
-            'title': item.title,
-            'artist': item.artist,
-            'album': item.album,
-            'artwork': item.compressedArtwork,
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+        keepRelPaths.add(relPath);
+
+        final targetGroupId =
+        item is GroupedTrackMetadataItem ? item.groupId : 0;
+
+        await txn.rawInsert('''
+          INSERT INTO file_list (file_path, title, artist, album, artwork, group_id, track_order)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(file_path) DO UPDATE SET
+            title = excluded.title,
+            artist = excluded.artist,
+            album = excluded.album,
+            artwork = excluded.artwork,
+            track_order = excluded.track_order,
+            group_id = CASE WHEN excluded.group_id != 0 THEN excluded.group_id ELSE file_list.group_id END
+        ''', [
+          relPath,
+          item.title,
+          item.artist,
+          item.album,
+          item.compressedArtwork,
+          targetGroupId,
+          i,
+        ]);
       }
-      await batch.commit(noResult: true);
+
+      // Delete tracks removed from FileListManager without clearing existing tracks
+      if (keepRelPaths.isNotEmpty) {
+        final placeholders = List.filled(keepRelPaths.length, '?').join(',');
+        await txn.delete(
+          'file_list',
+          where: 'file_path NOT IN ($placeholders)',
+          whereArgs: keepRelPaths.toList(),
+        );
+      } else {
+        await txn.delete('file_list');
+      }
     });
   }
 
@@ -221,41 +439,51 @@ class SQLiteStorage implements IDatabaseStorage {
     return map;
   }
 
-  Future<void> _createTables(Database db) async {
-    // 1. Current playback queue table
-    await db.execute('''
-      CREATE TABLE current_playlist (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        file_path TEXT NOT NULL UNIQUE,
-        track_order INTEGER NOT NULL
-      )
-    ''');
+  // --- Helpers ---
 
-    // 2. Main local music library metadata table
-    await db.execute('''
-      CREATE TABLE file_list (
-        file_path TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        artist TEXT NOT NULL,
-        album TEXT NOT NULL,
-        artwork BLOB
-      )
-    ''');
+  String _toRelativePath(String absolutePath) {
+    if (_appSupportDir == null) return absolutePath;
+    final rootPath = _appSupportDir!.path;
+    if (absolutePath.startsWith(rootPath)) {
+      return p.relative(absolutePath, from: rootPath);
+    }
+    return absolutePath;
+  }
 
-    // 3. Temporary fast-lookup cache table
-    await db.execute('''
-      CREATE TABLE metadata_cache (
-        file_path TEXT PRIMARY KEY,
-        title TEXT,
-        artist TEXT,
-        artwork BLOB
-      )
-    ''');
+  String _toAbsolutePath(String relativePath) {
+    if (_appSupportDir == null || p.isAbsolute(relativePath)) {
+      return relativePath;
+    }
+    return p.join(_appSupportDir!.path, relativePath);
   }
 
   @override
   Future<void> close() async {
     await _db?.close();
     _db = null;
+  }
+
+  // --- Relational Group Operations (Extended) ---
+
+  @override
+  Future<void> updateGroupParent(int groupId, int? parentId) async {
+    final targetParentId = parentId ?? 0;
+    await _database.update(
+      'groups',
+      {'parent_id': targetParentId},
+      where: 'id = ?',
+      whereArgs: [groupId],
+    );
+  }
+
+  @override
+  Future<void> deleteGroupTracksByGroupId(int groupId) async {
+    // Reset group_id to default root (0) or remove track associations
+    await _database.update(
+      'file_list',
+      {'group_id': 0},
+      where: 'group_id = ?',
+      whereArgs: [groupId],
+    );
   }
 }

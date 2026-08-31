@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../controllers/audio/audio_player_controller.dart';
-import '../../controllers/song_list/file_list_manager.dart';
-import '../../themes/app_theme_interface.dart';
-import '../../themes/theme_provider.dart';
-import '../../utils/data_structures/track_metadata_item.dart';
-import '../song_list/song_list_view.dart';
+import '../../../controllers/audio/audio_player_controller.dart';
+import '../../../controllers/song_list/file_list_manager.dart';
+import '../../../themes/app_theme_interface.dart';
+import '../../../themes/theme_provider.dart';
+import '../../../utils/data_structures/track_metadata_item.dart';
+import '../../song_list/song_list_view.dart';
 
 class FileListView extends StatefulWidget {
   final FileListManager fileListManager;

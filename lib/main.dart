@@ -22,6 +22,7 @@ import 'package:yl_music_player/utils/storage/database/sqlite.dart';
 import 'package:yl_music_player/utils/storage/settings.dart';
 import 'configs/window.dart';
 import 'controllers/lyrics/lyrics_handler.dart';
+import 'controllers/song_list/group_manager.dart';
 import 'controllers/song_list/playlist_manager.dart';
 import 'controllers/themes/theme_controller.dart';
 
@@ -34,10 +35,10 @@ final lyricsHandler = LyricsHandler();
 late final FileListManager fileListManager;
 final transferController = LanTransferController();
 final lanTransferController = LanTransferController();
+late final GroupManager groupManager;
 
 final playbackControlKey = GlobalKey<PlaybackControlsState>();
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-
 
 bool isTransferEnabled = false;
 
@@ -51,6 +52,7 @@ void main(List<String> args) async {
 
   playlistManager = PlaylistManager(db: dbStorage);
   fileListManager = FileListManager(db: dbStorage);
+  groupManager = GroupManager(db: dbStorage);
 
   ThemeController.instance.init();
 
@@ -100,7 +102,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.detached) {
       _disposeResources();
     }
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
       lanTransferController.stopService();
       _servicePaused = true;
     } else if (_servicePaused) {
@@ -123,7 +126,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // Close database storage handles if implemented
     dbStorage.close();
   }
-
 
   Future<void> _initTransferServer() async {
     // Handshake Callback: Prompt user when incoming transfer batch is requested
@@ -151,7 +153,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
       if (mounted) {
         await fileListManager.addFileAt(savedFile.path, 0);
-        setState(() { });
+        setState(() {});
       }
     };
   }
@@ -175,13 +177,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                   index: AppRouter.instance.currentIndex,
                   children: [
                     PlayerPage(
-                      playlistManager: playlistManager,
-                      lyricsHandler: lyricsHandler,
                     ),
-                    FileManagerPage(
-                      audioController: audioPlayerController,
-                      fileListManager: fileListManager,
-                    ),
+                    FileManagerPage(),
                   ],
                 );
               },

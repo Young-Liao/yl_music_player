@@ -5,12 +5,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:yl_music_player/components/lyrics/lyrics_view.dart';
-import 'package:yl_music_player/main.dart';
+import 'package:yl_music_player/main.dart' as main_lib;
 import 'package:yl_music_player/utils/data_structures/track_metadata_item.dart';
 import 'package:yl_music_player/utils/link_service.dart';
 import '../components/player/playback_controls.dart';
 import 'package:yl_music_player/components/player/progress_bar.dart';
-import 'package:yl_music_player/components/song_list/track_metadata.dart';
+import 'package:yl_music_player/components/player/track_metadata.dart';
 import 'package:yl_music_player/controllers/audio/audio_player_controller.dart';
 import 'package:yl_music_player/controllers/lyrics/lyrics_handler.dart';
 import 'package:yl_music_player/utils/track_stepper_mixin.dart';
@@ -22,14 +22,7 @@ import '../components/window/header_bar.dart';
 enum PlayerDisplayMode { metadata, lyrics }
 
 class PlayerPage extends StatefulWidget {
-  final PlaylistManager playlistManager;
-  final LyricsHandler lyricsHandler;
-
-  const PlayerPage({
-    super.key,
-    required this.playlistManager,
-    required this.lyricsHandler,
-  });
+  const PlayerPage({super.key});
 
   @override
   State<StatefulWidget> createState() => _PlayerPageState();
@@ -52,18 +45,18 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
   double _currentSliderValue = 0.0;
 
   @override
-  AudioPlayerController get audioController => audioPlayerController;
+  AudioPlayerController get audioController => main_lib.audioPlayerController;
 
   @override
-  PlaylistManager get playlistManager => widget.playlistManager;
+  PlaylistManager get playlistManager => main_lib.playlistManager;
 
   @override
-  LyricsHandler get lyricsHandler => widget.lyricsHandler;
+  LyricsHandler get lyricsHandler => main_lib.lyricsHandler;
 
   @override
   void initState() {
     super.initState();
-    audioPlayerController.playbackCompleted = playCompleted;
+    audioController.playbackCompleted = playCompleted;
 
     audioController.lyricsHandler = lyricsHandler;
     playlistManager
@@ -162,7 +155,7 @@ class _PlayerPageState extends State<PlayerPage> with TrackStepperMixin {
           },
         ),
         PlaybackControls(
-          key: playbackControlKey,
+          key: main_lib.playbackControlKey,
           audioController: audioController,
           playlistManager: playlistManager,
           lyricsManager: lyricsHandler,

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../../../themes/theme_provider.dart';
+import '../../../../../themes/theme_provider.dart';
 
-class GroupsWindow extends StatelessWidget {
-  const GroupsWindow({super.key});
+class PlaylistsWindow extends StatelessWidget {
+  const PlaylistsWindow({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -10,7 +10,7 @@ class GroupsWindow extends StatelessWidget {
 
     return Center(
       child: Text(
-        'Groups Window',
+        'Playlists Window',
         style: TextStyle(
           fontSize: 18.0,
           fontWeight: FontWeight.w600,

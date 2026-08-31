@@ -53,6 +53,7 @@ class FileListManager extends SongListManager {
       items.add(cached);
     }
 
+    // Preserve track metadata in file list without clearing associated group metadata tables
     await db!.saveFileList(items);
   }
 

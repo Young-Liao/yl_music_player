@@ -9,7 +9,7 @@ class WindowConfig {
       await windowManager.ensureInitialized();
 
       WindowOptions windowOptions = const WindowOptions(
-        size: Size(800, 680), // Initial default player size
+        size: Size(1180, 680), // Initial default player size
         minimumSize: Size(380, 680), // Enforce minimal window bounds
         center: true,
         backgroundColor: Colors.transparent,

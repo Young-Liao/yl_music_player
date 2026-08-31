@@ -18,3 +18,17 @@ Future<List<String>> pickMultipleMusicFiles() async {
       .whereType<String>()
       .toList();
 }
+
+/// Opens the system directory picker to select a folder path.
+Future<String?> pickMusicFolder() async {
+  // Use getDirectoryPath to let the user select a folder
+  final String? selectedDirectoryPath = await FilePicker.getDirectoryPath(
+    dialogTitle: 'Select Music Folder',
+  );
+
+  if (selectedDirectoryPath == null || selectedDirectoryPath.isEmpty) {
+    return null; // User canceled
+  }
+
+  return selectedDirectoryPath;
+}
